@@ -109,8 +109,8 @@ async function handleFaceit(interaction, nickname, res) {
     return res.send({
       type: 4,
       data: {
-        content: `🎉 Faceit seviyen **${cs2Level}**, rolün başarıyla verilecek. <@${interaction.member.user.id}>`,
-        allowed_mentions: { parse: ['users'] }
+        content: `🎉 Faceit seviyen **${cs2Level}**, rolün başarıyla verildi.`,
+        flags: 64 // ⬅️ Bu sayede sadece kullanıcı görür (ephemeral)
       }
     });
 
@@ -122,7 +122,8 @@ async function handleFaceit(interaction, nickname, res) {
     return res.send({
       type: 4,
       data: {
-        content: '❌ Faceit API isteği başarısız oldu. Lütfen kullanıcı adını kontrol et.'
+        content: '❌ Faceit API isteği başarısız oldu. Lütfen kullanıcı adını kontrol et.',
+        flags: 64
       }
     });
   }
