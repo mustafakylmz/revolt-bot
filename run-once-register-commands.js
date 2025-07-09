@@ -8,10 +8,9 @@ const commands = [
     description: "Rol seçimi veya Faceit rolü alma seçeneklerini sunar."
   },
   {
-    name: "ping", // Ping komutunu da isterseniz tutun, çok basit
+    name: "ping",
     description: "Botun çalışıp çalışmadığını kontrol eder."
   }
-  // Faceit veya Faceitrol komutlarını buradan kaldırın
 ];
 
 const url = `https://discord.com/api/v10/applications/${process.env.DISCORD_CLIENT_ID}/commands`;
