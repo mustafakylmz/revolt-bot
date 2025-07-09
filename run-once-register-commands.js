@@ -4,10 +4,6 @@ dotenv.config();
 
 const commands = [
   {
-    name: "rolal",
-    description: "Rol seçimi veya Faceit rolü alma seçeneklerini sunar."
-  },
-  {
     name: "ping",
     description: "Botun çalışıp çalışmadığını kontrol eder."
   }

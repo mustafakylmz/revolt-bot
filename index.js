@@ -1,6 +1,5 @@
 import express from 'express';
 import dotenv from 'dotenv';
-// discord-interactions kütüphanesi için CommonJS uyumluluğu
 import pkg from 'discord-interactions';
 const {
     verifyKeyMiddleware,
@@ -8,41 +7,68 @@ const {
     InteractionResponseType,
     InteractionResponseFlags,
     MessageComponentTypes,
-    TextInputStyles // Modal metin giriş stilleri için eklendi
+    TextInputStyles
 } = pkg;
 
 import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import fs from 'fs';
+import path from 'path';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Discord için raw body middleware (Discord etkileşimlerinin doğrulanması için gereklidir)
+// Discord için raw body middleware
 app.use(express.json({
   verify: (req, res, buf) => {
     req.rawBody = buf.toString();
   }
 }));
 
-// Discord Bot token'ı ile REST client'ı başlat
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
+const applicationId = process.env.DISCORD_CLIENT_ID;
 
-// roles.json dosyasından rol ID'lerini oku
-const roleIds = JSON.parse(fs.readFileSync('./roles.json', 'utf-8'));
+// Dosya yollarını tanımla
+const rolesFilePath = path.resolve('./roles.json');
+const messageIdsFilePath = path.resolve('./message_ids.json');
+
+// Rol ID'lerini dosyadan oku
+const roleIds = JSON.parse(fs.readFileSync(rolesFilePath, 'utf-8'));
+
+// Mesaj ID'lerini dosyadan oku (yoksa boş obje oluştur)
+let messageIds = {};
+if (fs.existsSync(messageIdsFilePath)) {
+    try {
+        messageIds = JSON.parse(fs.readFileSync(messageIdsFilePath, 'utf-8'));
+    } catch (e) {
+        console.error("Hata: message_ids.json dosyası bozuk. Yeniden oluşturuluyor.", e);
+        messageIds = {};
+        fs.writeFileSync(messageIdsFilePath, JSON.stringify({}, null, 2));
+    }
+} else {
+    fs.writeFileSync(messageIdsFilePath, JSON.stringify({}, null, 2));
+}
 
 /**
- * Sunucudaki belirli rol ID'lerinin detaylı bilgilerini (isim, ikon vb.) Discord API'sinden çeker.
- * @param {string} guildId - Komutun tetiklendiği sunucunun ID'si.
- * @param {string[]} roleIds - Bilgileri çekilecek rol ID'lerinin dizisi.
- * @returns {Promise<Array>} Filtrelenmiş ve detaylandırılmış rol bilgileri dizisi.
+ * message_ids.json dosyasını günceller.
+ * @param {object} data - Yazılacak veri.
+ */
+function saveMessageIds(data) {
+    try {
+        fs.writeFileSync(messageIdsFilePath, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error("message_ids.json dosyasına yazma hatası:", e);
+    }
+}
+
+/**
+ * Sunucudaki belirli rol ID'lerinin detaylı bilgilerini çeker.
  */
 async function fetchRolesInfo(guildId, roleIds) {
   try {
     const guildRoles = await rest.get(Routes.guildRoles(guildId));
-    // Sadece roles.json'daki ID'lere sahip rolleri filtrele
     const filteredRoles = guildRoles.filter(role => roleIds.includes(role.id));
     return filteredRoles;
   } catch (error) {
@@ -51,64 +77,123 @@ async function fetchRolesInfo(guildId, roleIds) {
   }
 }
 
-// Tüm Discord etkileşimlerini işleyen ana endpoint
+/**
+ * Belirtilen kanalda mesajı gönderir veya günceller.
+ * @param {string} channelId - Mesajın gönderileceği/güncelleneceği kanal ID'si.
+ * @param {string} messageKey - message_ids.json dosyasındaki anahtar (örn: 'rolesMessage', 'faceitMessage').
+ * @param {object} messageContent - Mesajın içeriği (content, components, flags vb.).
+ */
+async function sendOrUpdateMessage(channelId, messageKey, messageContent) {
+    if (!channelId) {
+        console.error(`Hata: ${messageKey} için kanal ID'si tanımlanmamış. Mesaj gönderilemedi.`);
+        return;
+    }
+    try {
+        let messageId = messageIds[messageKey];
+
+        if (messageId) {
+            try {
+                // Mesajı güncellemeye çalış
+                await rest.patch(Routes.channelMessage(channelId, messageId), { body: messageContent });
+                console.log(`Mesaj başarıyla güncellendi: ${messageKey} (${messageId})`);
+            } catch (error) {
+                // Mesaj bulunamazsa veya silinmişse, yeni bir mesaj gönder
+                if (error.code === 10008) { // DiscordAPIError[10008]: Unknown Message
+                    console.warn(`Mevcut mesaj bulunamadı veya silinmiş: ${messageKey}. Yeni mesaj gönderiliyor...`);
+                    const newMessage = await rest.post(Routes.channelMessages(channelId), { body: messageContent });
+                    messageIds[messageKey] = newMessage.id;
+                    saveMessageIds(messageIds);
+                    console.log(`Yeni mesaj gönderildi: ${messageKey} (${newMessage.id})`);
+                } else {
+                    throw error; // Diğer hataları yukarı fırlat
+                }
+            }
+        } else {
+            // Mesaj daha önce hiç gönderilmemişse, yeni bir mesaj gönder
+            const newMessage = await rest.post(Routes.channelMessages(channelId), { body: messageContent });
+            messageIds[messageKey] = newMessage.id;
+            saveMessageIds(messageIds);
+            console.log(`Yeni mesaj gönderildi: ${messageKey} (${newMessage.id})`);
+        }
+    } catch (error) {
+        console.error(`Mesaj gönderme/güncelleme hatası (${messageKey}):`, error);
+    }
+}
+
+// Bot başladığında veya yeniden dağıtıldığında otomatik olarak mesajları gönder/güncelle
+async function initializeMessages() {
+    console.log("Mesajlar başlatılıyor/güncelleniyor...");
+    // Genel Rol Seçim Mesajı
+    await sendOrUpdateMessage(
+        process.env.ROLES_CHANNEL_ID,
+        'rolesMessage',
+        {
+            content: 'Sunucudaki **diğer rolleri** almak için aşağıdaki butonu kullanın.',
+            components: [
+                {
+                    type: MessageComponentTypes.ACTION_ROW,
+                    components: [
+                        {
+                            type: MessageComponentTypes.BUTTON,
+                            label: 'Rolleri Seç',
+                            style: 1, // Primary (mavi)
+                            custom_id: 'select_roles_button',
+                        }
+                    ]
+                }
+            ]
+        }
+    );
+
+    // Faceit Rolü Mesajı
+    await sendOrUpdateMessage(
+        process.env.FACEIT_CHANNEL_ID,
+        'faceitMessage',
+        {
+            content: 'Faceit seviyenize göre rol almak için aşağıdaki butonu kullanın. Bot, Faceit API\'sinden seviyenizi çekecektir.',
+            components: [
+                {
+                    type: MessageComponentTypes.ACTION_ROW,
+                    components: [
+                        {
+                            type: MessageComponentTypes.BUTTON,
+                            label: 'Faceit Rolü Al',
+                            style: 1, // Primary (mavi)
+                            custom_id: 'faceit_role_request_button',
+                        }
+                    ]
+                }
+            ]
+        }
+    );
+    console.log("Mesaj başlatma/güncelleme tamamlandı.");
+}
+
+
+// Discord etkileşimlerini işleyen ana endpoint
 app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), async (req, res) => {
   const interaction = req.body;
-  // Uygulama ID'si, webhook mesajları göndermek için kullanılır
-  const applicationId = process.env.DISCORD_CLIENT_ID;
 
-  // Discord PING etkileşimini yanıtla (botun canlı olduğunu kontrol eder)
+  // Discord PING etkileşimini yanıtla
   if (interaction.type === InteractionType.PING) {
     return res.send({ type: InteractionResponseType.PONG });
   }
 
   try {
-    // Slash Komutlarını (Application Commands) İşle
+    // Slash Komutlarını İşle (sadece ping için)
     if (interaction.type === InteractionType.APPLICATION_COMMAND) {
       const { name } = interaction.data;
 
       switch (name) {
         case 'ping':
-          // Ping komutu için hızlı yanıt
           return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
               content: 'Pong!',
-              flags: InteractionResponseFlags.EPHEMERAL, // Sadece komutu kullanan kişiye görünür
+              flags: InteractionResponseFlags.EPHEMERAL,
             }
           });
-
-        case 'rolal':
-          // /rolal komutu çağrıldığında, iki buton içeren bir mesaj gönder
-          return res.send({
-            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: {
-              content: 'Aşağıdan yapmak istediğin işlemi seç:',
-              flags: InteractionResponseFlags.EPHEMERAL, // Sadece komutu kullanan kişiye görünür
-              components: [
-                {
-                  type: MessageComponentTypes.ACTION_ROW, // Butonları aynı satırda tutar
-                  components: [
-                    {
-                      type: MessageComponentTypes.BUTTON, // Rol Seç butonu
-                      label: 'Rol Seç',
-                      style: 1, // Primary (mavi) buton
-                      custom_id: 'select_roles_button',
-                    },
-                    {
-                      type: MessageComponentTypes.BUTTON, // Faceit Rolü Al butonu
-                      label: 'Faceit Rolü Al',
-                      style: 1, // Primary (mavi) buton
-                      custom_id: 'faceit_role_request_button',
-                    }
-                  ]
-                }
-              ],
-            }
-          });
-
         default:
-          // Tanımsız komutlar için hata mesajı
           return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -124,29 +209,23 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
       const memberId = interaction.member.user.id;
       const guildId = interaction.guild_id;
 
-      // Bileşen etkileşimleri için hemen defer yanıtı gönder
-      // Bu, Discord'a botun isteği aldığını ve işlediğini bildirir.
       await res.send({
-        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE, // Mesajı güncelleyeceğimizi belirtir
+        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
         flags: InteractionResponseFlags.EPHEMERAL
       });
 
       switch (custom_id) {
-        case 'select_roles_button': // "Rol Seç" butonuna basıldığında tetiklenir
+        case 'select_roles_button': // "Rolleri Seç" butonuna basıldığında tetiklenir
             const rolesInfo = await fetchRolesInfo(guildId, roleIds);
 
-            // Discord select menü seçeneklerini hazırla
             const options = rolesInfo.map(role => {
-                // Rol ikonları için hata almamak adına `emoji` kısmını şimdilik `undefined` bırakıyoruz.
-                // Eğer özel Discord emojisi kullanmak isterseniz, burada emojinin gerçek snowflake ID'sini belirtmeniz gerekir.
                 return {
                     label: role.name,
                     value: role.id,
-                    emoji: undefined, // `role.icon` bir snowflake ID olmadığı için boş bırakıldı.
+                    emoji: undefined, // Rol ikonları için emoji desteğini şimdilik devre dışı bıraktık
                 };
             });
 
-            // Defer yanıtını düzenleyerek seçim menüsünü gönder
             await rest.patch(
                 Routes.webhookMessage(applicationId, interaction.token),
                 {
@@ -158,13 +237,11 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
                                 type: MessageComponentTypes.ACTION_ROW,
                                 components: [
                                     {
-                                        type: MessageComponentTypes.STRING_SELECT, // String Seçim Menüsü
+                                        type: MessageComponentTypes.STRING_SELECT,
                                         custom_id: 'multi_role_select',
                                         placeholder: 'Rolleri seç...',
                                         min_values: 1,
-                                        // Max değer, listedeki seçenek sayısı kadar, en az 1
                                         max_values: options.length > 0 ? options.length : 1,
-                                        // Eğer hiç rol yoksa, varsayılan bir "bulunamadı" seçeneği göster
                                         options: options.length > 0 ? options : [{ label: 'Rol bulunamadı', value: 'no_roles', description: 'Sunucuda seçilebilir rol bulunmuyor.' }],
                                     }
                                 ]
@@ -177,18 +254,18 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
 
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
             return res.send({
-                type: InteractionResponseType.MODAL, // Modal yanıt türü
+                type: InteractionResponseType.MODAL,
                 data: {
-                    custom_id: 'modal_faceit_nickname_submit', // Modal gönderildiğinde kullanılacak custom_id
+                    custom_id: 'modal_faceit_nickname_submit',
                     title: 'Faceit Nickname Gir',
                     components: [
                         {
-                            type: MessageComponentTypes.ACTION_ROW, // Modal içindeki input'lar için Action Row
+                            type: MessageComponentTypes.ACTION_ROW,
                             components: [
                                 {
-                                    type: MessageComponentTypes.TEXT_INPUT, // Metin giriş bileşeni
-                                    custom_id: 'faceit_nickname_input', // Giriş kutusunun custom_id'si
-                                    style: 1, // BURASI DEĞİŞTİRİLDİ: TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
+                                    type: MessageComponentTypes.TEXT_INPUT,
+                                    custom_id: 'faceit_nickname_input',
+                                    style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
                                     label: 'Faceit Kullanıcı Adınız:',
                                     placeholder: 'örnek: shroud',
                                     required: true,
@@ -206,7 +283,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
           let rolesGivenCount = 0;
           let failedRoles = [];
 
-          // Eğer "Rol bulunamadı" seçeneği seçilirse (yani liste boşsa)
           if (selectedRoleIds.includes('no_roles')) {
             await rest.patch(
               Routes.webhookMessage(applicationId, interaction.token),
@@ -220,7 +296,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             break;
           }
 
-          // Seçilen her bir role kullanıcıya atama işlemi
           for (const roleId of selectedRoleIds) {
             try {
               await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
@@ -242,7 +317,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
               responseContent = 'Herhangi bir rol seçilmedi veya verilemedi. Botun yeterli izni olduğundan emin olun.';
           }
 
-          // İşlem sonucunu kullanıcıya bildir
           await rest.patch(
             Routes.webhookMessage(applicationId, interaction.token),
             {
@@ -255,7 +329,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
           break;
 
         default:
-          // Tanımsız bileşen etkileşimleri için hata mesajı
           await rest.patch(
             Routes.webhookMessage(applicationId, interaction.token),
             {
@@ -274,99 +347,93 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
         const memberId = interaction.member.user.id;
         const guildId = interaction.guild_id;
 
-        // Modal gönderimlerinde hemen defer yanıtı ver
         await res.send({
             type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
             flags: InteractionResponseFlags.EPHEMERAL
         });
 
         if (custom_id === 'modal_faceit_nickname_submit') {
-          const nicknameInput = interaction.data.components[0].components[0].value;
-          console.log(`Faceit Nickname alındı: ${nicknameInput}`);
+            const nicknameInput = interaction.data.components[0].components[0].value;
+            console.log(`Faceit Nickname alındı: ${nicknameInput}`);
 
-          let responseMessage = '';
-          let faceitLevel = null;
+            let responseMessage = '';
+            let faceitLevel = null;
 
-          try {
-              // === FACEIT API ENTEGRASYONU BURADA BAŞLIYOR ===
-              // `node-fetch` kütüphanesini zaten yüklediniz. Axios da kullanabilirsiniz.
-              const FACEIT_API_KEY = process.env.FACEIT_API_KEY;
-              if (!FACEIT_API_KEY) {
-                  throw new Error("FACEIT_API_KEY environment variable is not set.");
-              }
+            try {
+                // === FACEIT API ENTEGRASYONU YAPACAĞINIZ YER ===
+                const FACEIT_API_KEY = process.env.FACEIT_API_KEY;
+                if (!FACEIT_API_KEY) {
+                    throw new Error("FACEIT_API_KEY environment variable is not set.");
+                }
 
-              const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
-              const apiResponse = await fetch(faceitApiUrl, {
-                  headers: { 'Authorization': `Bearer ${FACEIT_API_KEY}` }
-              });
-              const playerData = await apiResponse.json();
+                const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
+                const apiResponse = await fetch(faceitApiUrl, {
+                    headers: { 'Authorization': `Bearer ${FACEIT_API_KEY}` }
+                });
+                const playerData = await apiResponse.json();
 
-              if (!apiResponse.ok) { // HTTP status 200 olmayan yanıtlar için
-                  if (apiResponse.status === 404) {
-                      responseMessage = `Faceit nickname "**${nicknameInput}**" bulunamadı. Lütfen nickinizi doğru yazdığınızdan emin olun.`;
-                  } else {
-                      console.error('Faceit API hata kodu:', apiResponse.status, playerData);
-                      responseMessage = `Faceit API ile bağlantı kurarken bir hata oluştu: ${playerData.message || 'Bilinmeyen Hata'}.`;
-                  }
-              } else {
-                  // Oyuncu verisini kontrol edin ve seviyeyi alın
-                  if (playerData && playerData.games && playerData.games.csgo && playerData.games.csgo.skill_level) {
-                      faceitLevel = playerData.games.csgo.skill_level;
-                  } else {
-                      responseMessage = `Faceit nickname "**${nicknameInput}**" için CS:GO oyun verisi bulunamadı.`;
-                  }
-              }
-              // === FACEIT API ENTEGRASYONU BURADA BİTİYOR ===
+                if (!apiResponse.ok) {
+                    if (apiResponse.status === 404) {
+                        responseMessage = `Faceit nickname "**${nicknameInput}**" bulunamadı. Lütfen nickinizi doğru yazdığınızdan emin olun.`;
+                    } else {
+                        console.error('Faceit API hata kodu:', apiResponse.status, playerData);
+                        responseMessage = `Faceit API ile bağlantı kurarken bir hata oluştu: ${playerData.message || 'Bilinmeyen Hata'}.`;
+                    }
+                } else {
+                    if (playerData && playerData.games && playerData.games.csgo && playerData.games.csgo.skill_level) {
+                        faceitLevel = playerData.games.csgo.skill_level;
+                    } else {
+                        responseMessage = `Faceit nickname "**${nicknameInput}**" için CS:GO oyun verisi bulunamadı.`;
+                    }
+                }
 
-          } catch (apiError) {
-              console.error('Faceit API çağrısı sırasında genel hata:', apiError);
-              responseMessage = 'Faceit API ile bağlantı kurarken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.';
-          }
+            } catch (apiError) {
+                console.error('Faceit API çağrısı sırasında genel hata:', apiError);
+                responseMessage = 'Faceit API ile bağlantı kurarken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.';
+            }
 
-          if (faceitLevel !== null) { // Eğer seviye başarılı bir şekilde alındıysa rol atama işlemi
-              let roleToAssignId = null;
+            if (faceitLevel !== null) {
+                let roleToAssignId = null;
 
-              switch (faceitLevel) {
-                  case 1: roleToAssignId = process.env.LEVEL_1_ROLE_ID; break;
-                  case 2: roleToAssignId = process.env.LEVEL_2_ROLE_ID; break;
-                  case 3: roleToAssignId = process.env.LEVEL_3_ROLE_ID; break;
-                  case 4: roleToAssignId = process.env.LEVEL_4_ROLE_ID; break;
-                  case 5: roleToAssignId = process.env.LEVEL_5_ROLE_ID; break;
-                  case 6: roleToAssignId = process.env.LEVEL_6_ROLE_ID; break;
-                  case 7: roleToAssignId = process.env.LEVEL_7_ROLE_ID; break;
-                  case 8: roleToAssignId = process.env.LEVEL_8_ROLE_ID; break;
-                  case 9: roleToAssignId = process.env.LEVEL_9_ROLE_ID; break;
-                  case 10: roleToAssignId = process.env.LEVEL_10_ROLE_ID; break;
-                  default: break; // Tanımsız seviye
-              }
+                switch (faceitLevel) {
+                    case 1: roleToAssignId = process.env.LEVEL_1_ROLE_ID; break;
+                    case 2: roleToAssignId = process.env.LEVEL_2_ROLE_ID; break;
+                    case 3: roleToAssignId = process.env.LEVEL_3_ROLE_ID; break;
+                    case 4: roleToAssignId = process.env.LEVEL_4_ROLE_ID; break;
+                    case 5: roleToAssignId = process.env.LEVEL_5_ROLE_ID; break;
+                    case 6: roleToAssignId = process.env.LEVEL_6_ROLE_ID; break;
+                    case 7: roleToAssignId = process.env.LEVEL_7_ROLE_ID; break;
+                    case 8: roleToAssignId = process.env.LEVEL_8_ROLE_ID; break;
+                    case 9: roleToAssignId = process.env.LEVEL_9_ROLE_ID; break;
+                    case 10: roleToAssignId = process.env.LEVEL_10_ROLE_ID; break;
+                    default: break;
+                }
 
-              if (roleToAssignId) {
-                  try {
-                      await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
-                      responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
-                  } catch (e) {
-                      console.error(`Faceit rolü verme hatası (Level ${faceitLevel}, Role ID: ${roleToAssignId}):`, e);
-                      responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
-                  }
-              } else {
-                  responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı.`;
-              }
-          }
-          // Eğer API çağrısında hata olduysa veya seviye alınamadıysa responseMessage zaten ayarlanmış olacak.
+                if (roleToAssignId) {
+                    try {
+                        await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
+                        responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
+                    } catch (e) {
+                        console.error(`Faceit rolü verme hatası (Level ${faceitLevel}, Role ID: ${roleToAssignId}):`, e);
+                        responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
+                    }
+                } else {
+                    responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı.`;
+                }
+            }
 
-          await rest.patch(
-              Routes.webhookMessage(applicationId, interaction.token),
-              {
-                  body: {
-                      content: responseMessage,
-                      flags: InteractionResponseFlags.EPHEMERAL,
-                  }
-              }
-          );
-      }
+            await rest.patch(
+                Routes.webhookMessage(applicationId, interaction.token),
+                {
+                    body: {
+                        content: responseMessage,
+                        flags: InteractionResponseFlags.EPHEMERAL,
+                    }
+                }
+            );
+        }
     }
   } catch (error) {
-    // Tüm genel hataları yakala ve kullanıcıya bildir
     console.error('Genel etkileşim işleme hatası:', error);
     if (interaction.token && applicationId) {
       await rest.patch(
@@ -382,6 +449,8 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
   }
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`Listening on port ${PORT}`);
+  // Bot başladığında mesajları başlat/güncelle
+  await initializeMessages();
 });
