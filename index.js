@@ -1,6 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import { verifyKeyMiddleware, InteractionType, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextInputs } from 'discord-interactions';
+import pkg from 'discord-interactions';
+const { verifyKeyMiddleware, InteractionType, InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, TextInputs } = pkg;
+
 import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import fs from 'fs';
