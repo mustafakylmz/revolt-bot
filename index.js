@@ -17,7 +17,8 @@ app.use(express.json({
   }
 }));
 
-const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
+// BOT_TOKEN yerine DISCORD_BOT_TOKEN kullanın
+const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN); // .env dosyasındaki BOT_TOKEN ile eşleşiyor
 
 // Rol ID dizisi
 const roleIds = JSON.parse(fs.readFileSync('./roles.json', 'utf-8'));
@@ -35,7 +36,8 @@ async function fetchRolesInfo(guildId, roleIds) {
   }
 }
 
-app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_CLIENT_PUBLIC_KEY), async (req, res) => {
+// DISCORD_PUBLIC_KEY kullanın, DISCORD_CLIENT_PUBLIC_KEY yerine
+app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), async (req, res) => {
   const interaction = req.body;
 
   if (interaction.type === InteractionType.PING) {
@@ -130,7 +132,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_CLIENT_PUBLIC_
       }
 
       if (interaction.data.custom_id === 'faceit_role_button') {
-        const faceitRoleId = 'ROL_ID_BURAYA'; // kendi Faceit rol ID'n
+        const faceitRoleId = 'ROL_ID_BURAYA'; // kendi Faceit rol ID'nizi buraya yazın
 
         try {
           await rest.put(Routes.guildMemberRole(guildId, memberId, faceitRoleId));
