@@ -150,7 +150,7 @@ async function initializeMessages() {
         process.env.FACEIT_CHANNEL_ID,
         'faceitMessage',
         {
-            content: 'Faceit seviyenize göre rol almak için aşağıdaki butonu kullanın. Bot, Faceit API\'sinden seviyenizi çekecektir.',
+            content: 'Faceit seviyenize göre rol almak için aşağıdaki butonu kullanın. Bot, Faceit API\'sından seviyenizi çekecektir.',
             components: [
                 {
                     type: MessageComponentTypes.ACTION_ROW,
@@ -258,31 +258,50 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
 
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
             console.log("Faceit Rolü Al butonu tıklandı. Modal gönderiliyor..."); // DEBUG LOG
-            // Modal doğrudan bir yanıt olduğu için burada defer yanıtı GÖNDERİLMEZ.
-            return res.send({
-                type: InteractionResponseType.MODAL,
-                data: {
-                    custom_id: 'modal_faceit_nickname_submit',
-                    title: 'Faceit Nickname Gir',
-                    components: [
+            try {
+                // Modal doğrudan bir yanıt olduğu için burada defer yanıtı GÖNDERİLMEZ.
+                return res.send({
+                    type: InteractionResponseType.MODAL,
+                    data: {
+                        custom_id: 'modal_faceit_nickname_submit',
+                        title: 'Faceit Nickname Gir',
+                        components: [
+                            {
+                                type: MessageComponentTypes.ACTION_ROW,
+                                components: [
+                                    {
+                                        type: MessageComponentTypes.TEXT_INPUT,
+                                        custom_id: 'faceit_nickname_input',
+                                        style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
+                                        label: 'Faceit Kullanıcı Adınız:',
+                                        placeholder: 'örnek: shroud',
+                                        required: true,
+                                        min_length: 3,
+                                        max_length: 30,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                });
+            } catch (sendError) {
+                console.error("Modal yanıtı gönderme sırasında kritik hata:", sendError);
+                // Eğer burada bir hata olursa, kullanıcıya bir hata mesajı göndermeyi deneyebiliriz.
+                try {
+                    await rest.patch(
+                        Routes.webhookMessage(applicationId, interaction.token),
                         {
-                            type: MessageComponentTypes.ACTION_ROW,
-                            components: [
-                                {
-                                    type: MessageComponentTypes.TEXT_INPUT,
-                                    custom_id: 'faceit_nickname_input',
-                                    style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
-                                    label: 'Faceit Kullanıcı Adınız:',
-                                    placeholder: 'örnek: shroud',
-                                    required: true,
-                                    min_length: 3,
-                                    max_length: 30,
-                                },
-                            ],
-                        },
-                    ],
-                },
-            });
+                            body: {
+                                content: 'Modal açılırken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.',
+                                flags: InteractionResponseFlags.EPHEMERAL,
+                            }
+                        }
+                    );
+                } catch (patchError) {
+                    console.error("Modal hatası sonrası webhook mesajı gönderme hatası:", patchError);
+                }
+                return; // Etkileşimi kapatmak için
+            }
 
         case 'multi_role_select': // Rol seçim menüsünden seçim yapıldığında tetiklenir
           const selectedRoleIds = interaction.data.values;
