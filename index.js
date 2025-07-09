@@ -257,6 +257,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             break;
 
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
+            console.log("Faceit Rolü Al butonu tıklandı. Modal gönderiliyor..."); // DEBUG LOG
             // Modal doğrudan bir yanıt olduğu için burada defer yanıtı GÖNDERİLMEZ.
             return res.send({
                 type: InteractionResponseType.MODAL,
@@ -352,6 +353,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
         const memberId = interaction.member.user.id;
         const guildId = interaction.guild_id;
 
+        console.log("Modal gönderimi alındı. Defer yanıtı gönderiliyor..."); // DEBUG LOG
         await res.send({
             type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
             flags: InteractionResponseFlags.EPHEMERAL
@@ -359,7 +361,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
 
         if (custom_id === 'modal_faceit_nickname_submit') {
             const nicknameInput = interaction.data.components[0].components[0].value;
-            console.log(`Faceit Nickname alındı: ${nicknameInput}`);
+            console.log(`Faceit Nickname alındı: ${nicknameInput}. API çağrısı yapılıyor...`); // DEBUG LOG
 
             let responseMessage = '';
             let faceitLevel = null;
@@ -416,6 +418,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
 
                 if (roleToAssignId) {
                     try {
+                        console.log(`Rol atama denemesi: Kullanıcı ${memberId}, Rol ${roleToAssignId}`); // DEBUG LOG
                         await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
                         responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
                     } catch (e) {
@@ -427,6 +430,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
                 }
             }
 
+            console.log(`Faceit rolü işlemi tamamlandı. Yanıt gönderiliyor: ${responseMessage}`); // DEBUG LOG
             await rest.patch(
                 Routes.webhookMessage(applicationId, interaction.token),
                 {
