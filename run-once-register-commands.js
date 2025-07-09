@@ -4,37 +4,22 @@ dotenv.config();
 
 const commands = [
   {
-    name: "ping",
-    description: "Botun çalışıp çalışmadığını kontrol eder."
-  },
-  {
-    name: "faceit",
-    description: "Faceit nickname ile seviye bilgisi alır.",
-    options: [
-      {
-        name: "nickname",
-        description: "Faceit kullanıcı adınız",
-        type: 3, // STRING
-        required: true
-      }
-    ]
-  },
-  {
     name: "rolal",
-    description: "Rolleri seçip almanızı sağlar."
+    description: "Rol seçimi veya Faceit rolü alma seçeneklerini sunar."
   },
   {
-    name: "faceitrol",
-    description: "Faceit rolü almanızı sağlar."
+    name: "ping", // Ping komutunu da isterseniz tutun, çok basit
+    description: "Botun çalışıp çalışmadığını kontrol eder."
   }
+  // Faceit veya Faceitrol komutlarını buradan kaldırın
 ];
 
-const url = `https://discord.com/api/v10/applications/${process.env.DISCORD_CLIENT_ID}/commands`; // DISCORD_CLIENT_ID kullanıldı
+const url = `https://discord.com/api/v10/applications/${process.env.DISCORD_CLIENT_ID}/commands`;
 
 fetch(url, {
-  method: 'PUT',
+  method: 'PUT', // PUT, mevcut tüm komutları bu listeyle değiştirir
   headers: {
-    "Authorization": `Bot ${process.env.BOT_TOKEN}`, // BOT_TOKEN kullanıldı
+    "Authorization": `Bot ${process.env.BOT_TOKEN}`,
     "Content-Type": "application/json"
   },
   body: JSON.stringify(commands)
