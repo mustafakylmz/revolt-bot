@@ -176,7 +176,6 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             break;
 
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
-            // Modalı doğrudan yanıta gönder, defer yanıtını kapatır
             return res.send({
                 type: InteractionResponseType.MODAL, // Modal yanıt türü
                 data: {
@@ -189,7 +188,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
                                 {
                                     type: MessageComponentTypes.TEXT_INPUT, // Metin giriş bileşeni
                                     custom_id: 'faceit_nickname_input', // Giriş kutusunun custom_id'si
-                                    style: TextInputStyles.SHORT, // Kısa metin girişi
+                                    style: 1, // BURASI DEĞİŞTİRİLDİ: TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
                                     label: 'Faceit Kullanıcı Adınız:',
                                     placeholder: 'örnek: shroud',
                                     required: true,
@@ -282,84 +281,89 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
         });
 
         if (custom_id === 'modal_faceit_nickname_submit') {
-            // Modal'dan Faceit nickname'ini al
-            const nicknameInput = interaction.data.components[0].components[0].value;
-            console.log(`Faceit Nickname alındı: ${nicknameInput}`);
+          const nicknameInput = interaction.data.components[0].components[0].value;
+          console.log(`Faceit Nickname alındı: ${nicknameInput}`);
 
-            // === BURASI FACEIT API ENTEGRASYONU YAPACAĞINIZ YER ===
-            // Örnek: Faceit API çağrısı yaparak kullanıcının seviyesini çekin.
-            // Bu kısım için `axios` veya `node-fetch` kullanabilirsiniz.
-            // `process.env.FACEIT_API_KEY` değişkenini kullanarak API isteği yapın.
+          let responseMessage = '';
+          let faceitLevel = null;
 
-            let responseMessage = '';
-            let faceitLevel = null; // API'den gelen seviye
+          try {
+              // === FACEIT API ENTEGRASYONU BURADA BAŞLIYOR ===
+              // `node-fetch` kütüphanesini zaten yüklediniz. Axios da kullanabilirsiniz.
+              const FACEIT_API_KEY = process.env.FACEIT_API_KEY;
+              if (!FACEIT_API_KEY) {
+                  throw new Error("FACEIT_API_KEY environment variable is not set.");
+              }
 
-            try {
-                // Örnek API çağrısı (GERÇEK API İSTEĞİ İÇİN BU KISMI DEĞİŞTİRMELİSİNİZ)
-                // const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
-                // const apiResponse = await fetch(faceitApiUrl, {
-                //     headers: { 'Authorization': `Bearer ${process.env.FACEIT_API_KEY}` }
-                // });
-                // const playerData = await apiResponse.json();
+              const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
+              const apiResponse = await fetch(faceitApiUrl, {
+                  headers: { 'Authorization': `Bearer ${FACEIT_API_KEY}` }
+              });
+              const playerData = await apiResponse.json();
 
-                // if (apiResponse.status !== 200 || playerData.errors) {
-                //     console.error('Faceit API hatası:', playerData.errors || apiResponse.statusText);
-                //     responseMessage = `Faceit nickname "${nicknameInput}" bulunamadı veya Faceit API'sinde bir hata oluştu. Lütfen nickinizi doğru yazdığınızdan emin olun.`;
-                // } else {
-                //     faceitLevel = playerData.games.csgo.skill_level; // CS:GO için seviye
-                // }
+              if (!apiResponse.ok) { // HTTP status 200 olmayan yanıtlar için
+                  if (apiResponse.status === 404) {
+                      responseMessage = `Faceit nickname "**${nicknameInput}**" bulunamadı. Lütfen nickinizi doğru yazdığınızdan emin olun.`;
+                  } else {
+                      console.error('Faceit API hata kodu:', apiResponse.status, playerData);
+                      responseMessage = `Faceit API ile bağlantı kurarken bir hata oluştu: ${playerData.message || 'Bilinmeyen Hata'}.`;
+                  }
+              } else {
+                  // Oyuncu verisini kontrol edin ve seviyeyi alın
+                  if (playerData && playerData.games && playerData.games.csgo && playerData.games.csgo.skill_level) {
+                      faceitLevel = playerData.games.csgo.skill_level;
+                  } else {
+                      responseMessage = `Faceit nickname "**${nicknameInput}**" için CS:GO oyun verisi bulunamadı.`;
+                  }
+              }
+              // === FACEIT API ENTEGRASYONU BURADA BİTİYOR ===
 
-                // Test için sabit bir seviye atıyoruz, gerçek API entegrasyonunda kaldırın
-                faceitLevel = Math.floor(Math.random() * 10) + 1; // 1 ile 10 arası rastgele seviye
+          } catch (apiError) {
+              console.error('Faceit API çağrısı sırasında genel hata:', apiError);
+              responseMessage = 'Faceit API ile bağlantı kurarken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.';
+          }
 
-            } catch (apiError) {
-                console.error('Faceit API çağrısı sırasında hata:', apiError);
-                responseMessage = 'Faceit API ile bağlantı kurarken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
-            }
+          if (faceitLevel !== null) { // Eğer seviye başarılı bir şekilde alındıysa rol atama işlemi
+              let roleToAssignId = null;
 
-            if (faceitLevel !== null) {
-                let roleToAssignId = null;
+              switch (faceitLevel) {
+                  case 1: roleToAssignId = process.env.LEVEL_1_ROLE_ID; break;
+                  case 2: roleToAssignId = process.env.LEVEL_2_ROLE_ID; break;
+                  case 3: roleToAssignId = process.env.LEVEL_3_ROLE_ID; break;
+                  case 4: roleToAssignId = process.env.LEVEL_4_ROLE_ID; break;
+                  case 5: roleToAssignId = process.env.LEVEL_5_ROLE_ID; break;
+                  case 6: roleToAssignId = process.env.LEVEL_6_ROLE_ID; break;
+                  case 7: roleToAssignId = process.env.LEVEL_7_ROLE_ID; break;
+                  case 8: roleToAssignId = process.env.LEVEL_8_ROLE_ID; break;
+                  case 9: roleToAssignId = process.env.LEVEL_9_ROLE_ID; break;
+                  case 10: roleToAssignId = process.env.LEVEL_10_ROLE_ID; break;
+                  default: break; // Tanımsız seviye
+              }
 
-                // .env dosyasından okunan rol ID'lerini kullanarak seviyeye göre rol ata
-                switch (faceitLevel) {
-                    case 1: roleToAssignId = process.env.LEVEL_1_ROLE_ID; break;
-                    case 2: roleToAssignId = process.env.LEVEL_2_ROLE_ID; break;
-                    case 3: roleToAssignId = process.env.LEVEL_3_ROLE_ID; break;
-                    case 4: roleToAssignId = process.env.LEVEL_4_ROLE_ID; break;
-                    case 5: roleToAssignId = process.env.LEVEL_5_ROLE_ID; break;
-                    case 6: roleToAssignId = process.env.LEVEL_6_ROLE_ID; break;
-                    case 7: roleToAssignId = process.env.LEVEL_7_ROLE_ID; break;
-                    case 8: roleToAssignId = process.env.LEVEL_8_ROLE_ID; break;
-                    case 9: roleToAssignId = process.env.LEVEL_9_ROLE_ID; break;
-                    case 10: roleToAssignId = process.env.LEVEL_10_ROLE_ID; break;
-                    default: break; // Tanımsız seviye
-                }
+              if (roleToAssignId) {
+                  try {
+                      await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
+                      responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
+                  } catch (e) {
+                      console.error(`Faceit rolü verme hatası (Level ${faceitLevel}, Role ID: ${roleToAssignId}):`, e);
+                      responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
+                  }
+              } else {
+                  responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı.`;
+              }
+          }
+          // Eğer API çağrısında hata olduysa veya seviye alınamadıysa responseMessage zaten ayarlanmış olacak.
 
-                if (roleToAssignId) {
-                    try {
-                        await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
-                        responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
-                    } catch (e) {
-                        console.error(`Faceit rolü verme hatası (Level ${faceitLevel}, Role ID: ${roleToAssignId}):`, e);
-                        responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
-                    }
-                } else {
-                    responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı.`;
-                }
-            }
-            // API hatası veya nickname bulunamadıysa zaten responseMessage ayarlanmıştır
-
-            // İşlem sonucunu kullanıcıya bildir
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: responseMessage,
-                        flags: InteractionResponseFlags.EPHEMERAL,
-                    }
-                }
-            );
-        }
+          await rest.patch(
+              Routes.webhookMessage(applicationId, interaction.token),
+              {
+                  body: {
+                      content: responseMessage,
+                      flags: InteractionResponseFlags.EPHEMERAL,
+                  }
+              }
+          );
+      }
     }
   } catch (error) {
     // Tüm genel hataları yakala ve kullanıcıya bildir
