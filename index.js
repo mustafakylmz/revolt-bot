@@ -209,10 +209,14 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
       const memberId = interaction.member.user.id;
       const guildId = interaction.guild_id;
 
-      await res.send({
-        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
-        flags: InteractionResponseFlags.EPHEMERAL
-      });
+      // Defer yanıtı sadece orijinal mesajı güncelleyeceğimiz durumlarda gönderilir.
+      // Modal'lar doğrudan bir yanıt olarak gönderilmelidir.
+      if (custom_id !== 'faceit_role_request_button') {
+        await res.send({
+          type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+          flags: InteractionResponseFlags.EPHEMERAL
+        });
+      }
 
       switch (custom_id) {
         case 'select_roles_button': // "Rolleri Seç" butonuna basıldığında tetiklenir
@@ -253,6 +257,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             break;
 
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
+            // Modal doğrudan bir yanıt olduğu için burada defer yanıtı GÖNDERİLMEZ.
             return res.send({
                 type: InteractionResponseType.MODAL,
                 data: {
@@ -360,7 +365,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             let faceitLevel = null;
 
             try {
-                // === FACEIT API ENTEGRASYONU YAPACAĞINIZ YER ===
+                // === BURASI FACEIT API ENTEGRASYONU YAPACAĞINIZ YER ===
                 const FACEIT_API_KEY = process.env.FACEIT_API_KEY;
                 if (!FACEIT_API_KEY) {
                     throw new Error("FACEIT_API_KEY environment variable is not set.");
