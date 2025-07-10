@@ -7,7 +7,7 @@ const {
     InteractionResponseType,
     InteractionResponseFlags,
     MessageComponentTypes,
-    TextInputStyles
+    TextInputStyles // Bu import hala burada kalsın, diğer yerlerde kullanılabilir
 } = pkg;
 
 import { REST } from '@discordjs/rest';
@@ -139,7 +139,7 @@ async function initializeMessages() {
                             type: MessageComponentTypes.BUTTON,
                             label: 'Rolleri Seç',
                             style: 1, // Primary (mavi)
-                            custom_id: 'select_roles_button', // Bu custom_id
+                            custom_id: 'select_roles_button',
                         }
                     ]
                 }
@@ -161,7 +161,7 @@ async function initializeMessages() {
                             type: MessageComponentTypes.BUTTON,
                             label: 'Faceit Rolü Al',
                             style: 1, // Primary (mavi)
-                            custom_id: 'faceit_role_request_button', // Bu custom_id
+                            custom_id: 'faceit_role_request_button',
                         }
                     ]
                 }
@@ -281,7 +281,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
                                             {
                                                 type: MessageComponentTypes.TEXT_INPUT,
                                                 custom_id: 'faceit_nickname_input',
-                                                style: TextInputStyles.SHORT, // TextInputStyles.SHORT kullanıldı
+                                                style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
                                                 label: 'Faceit Kullanıcı Adınız:',
                                                 placeholder: 'örnek: shroud',
                                                 required: true,
