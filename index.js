@@ -5,7 +5,9 @@ import { REST } from '@discordjs/rest';
 import { Routes } from 'discord-api-types/v10';
 import fs from 'fs';
 import path from 'path';
-import { raw } from 'body-parser';
+//import { raw } from 'body-parser';
+import bodyParser from 'body-parser';
+const raw = bodyParser.raw;
 
 const {
     verifyKeyMiddleware,
