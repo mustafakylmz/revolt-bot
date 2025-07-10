@@ -22,11 +22,10 @@ const PORT = process.env.PORT || 8080;
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 const applicationId = process.env.DISCORD_CLIENT_ID;
 
-// Dosya yolları
+// === ROL & MESAJ DOSYALARI ===
 const rolesFilePath = path.resolve('./roles.json');
 const messageIdsFilePath = path.resolve('./message_ids.json');
 
-// Roller ve mesaj ID’leri
 const roleIds = JSON.parse(fs.readFileSync(rolesFilePath, 'utf-8'));
 
 let messageIds = {};
@@ -125,20 +124,15 @@ async function initializeMessages() {
     );
 }
 
-// 🔄 INTERACTIONS ROUTE — raw body + verify middleware
+// 🔐 INTERACTIONS ROUTE — express.raw + verifyKeyMiddleware
 app.post(
     '/interactions',
     express.raw({ type: 'application/json' }),
     verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY),
     async (req, res) => {
-        let interaction;
-
-        try {
-            interaction = JSON.parse(req.body.toString());
-        } catch (e) {
-            console.error("Body parse hatası:", e);
-            return res.status(400).send("Invalid body");
-        }
+        const interaction = req.body; // ✅ BU ARTIK NESNE, PARSE ETME!
+        const guildId = interaction.guild_id;
+        const memberId = interaction?.member?.user?.id;
 
         try {
             // PING
@@ -158,22 +152,12 @@ app.post(
                             flags: InteractionResponseFlags.EPHEMERAL,
                         }
                     });
-                } else {
-                    return res.send({
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content: 'Bilinmeyen komut.',
-                            flags: InteractionResponseFlags.EPHEMERAL,
-                        }
-                    });
                 }
             }
 
-            // BUTONLAR & SELECT
+            // BUTONLAR & SELECT MENU
             if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
                 const { custom_id } = interaction.data;
-                const guildId = interaction.guild_id;
-                const userId = interaction.member.user.id;
 
                 if (custom_id === 'select_roles_button') {
                     const roles = await fetchRolesInfo(guildId, roleIds);
@@ -182,7 +166,7 @@ app.post(
                         value: r.id
                     }));
 
-                    await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
+                    return await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
                         body: {
                             content: 'Rolleri seç:',
                             flags: InteractionResponseFlags.EPHEMERAL,
@@ -203,7 +187,6 @@ app.post(
                             ]
                         }
                     });
-                    return;
                 }
 
                 if (custom_id === 'faceit_role_request_button') {
@@ -235,20 +218,20 @@ app.post(
 
                 if (custom_id === 'multi_role_select') {
                     const selected = interaction.data.values;
-
                     let success = 0;
+
                     for (const roleId of selected) {
                         try {
-                            await rest.put(Routes.guildMemberRole(guildId, userId, roleId));
+                            await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
                             success++;
                         } catch (e) {
                             console.error("Rol verilemedi:", roleId, e);
                         }
                     }
 
-                    await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
+                    return await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
                         body: {
-                            content: `${success} rol verildi.`,
+                            content: `${success} rol başarıyla verildi.`,
                             flags: InteractionResponseFlags.EPHEMERAL
                         }
                     });
@@ -258,11 +241,8 @@ app.post(
             // MODAL GÖNDERİMİ
             if (interaction.type === InteractionType.MODAL_SUBMIT) {
                 const nickname = interaction.data.components[0].components[0].value;
-                const guildId = interaction.guild_id;
-                const userId = interaction.member.user.id;
-
-                let faceitLevel = null;
                 let responseText = '';
+                let faceitLevel = null;
 
                 try {
                     const apiKey = process.env.FACEIT_API_KEY;
@@ -285,31 +265,32 @@ app.post(
                 if (faceitLevel) {
                     const roleId = process.env[`LEVEL_${faceitLevel}_ROLE_ID`];
                     try {
-                        await rest.put(Routes.guildMemberRole(guildId, userId, roleId));
-                        responseText = `Faceit level ${faceitLevel} için rol verildi.`;
-                    } catch (e) {
+                        await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
+                        responseText = `Level ${faceitLevel} için rol başarıyla verildi.`;
+                    } catch {
                         responseText = `Rol verilemedi (level ${faceitLevel})`;
                     }
                 }
 
-                await res.send({
+                return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
                         content: responseText,
-                        flags: InteractionResponseFlags.EPHEMERAL,
+                        flags: InteractionResponseFlags.EPHEMERAL
                     }
                 });
             }
         } catch (e) {
             console.error("İşleme hatası:", e);
+            return res.status(500).send('Sunucu hatası.');
         }
     }
 );
 
-// Diğer rotalar için JSON parser middleware
+// 🎯 SADECE /interactions için express.raw, geri kalan rotalar için express.json aktif
 app.use(express.json());
 
 app.listen(PORT, async () => {
-    console.log(`Sunucu çalışıyor: ${PORT}`);
+    console.log(`Sunucu çalışıyor: http://localhost:${PORT}`);
     await initializeMessages();
 });
