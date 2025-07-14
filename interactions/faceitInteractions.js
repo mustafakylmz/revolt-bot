@@ -56,30 +56,50 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
         });
 
         // Extract the nickname from the modal submission data
-        const nickname = interaction.data.components[0].components[0].value;
+        const originalNickname = interaction.data.components[0].components[0].value;
         let responseMessage = '';
         let faceitLevel = null;
         let roleIdToAssign = null; // Variable to hold the role ID to be assigned
+        let faceitData = null;
 
         try {
-            // Fetch Faceit player data using the provided nickname
-            const faceitRes = await fetch(`https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nickname)}`, {
-                headers: { Authorization: `Bearer ${env.FACEIT_API_KEY}` } // Use Faceit API key from environment variables
+            // --- Case Sensitivity Handling ---
+            // 1. Try fetching with the original nickname
+            let faceitRes = await fetch(`https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(originalNickname)}`, {
+                headers: { Authorization: `Bearer ${env.FACEIT_API_KEY}` }
             });
-            const faceitData = await faceitRes.json();
 
-            if (!faceitRes.ok) {
-                // Handle API errors (e.g., nickname not found, other errors)
-                responseMessage = faceitRes.status === 404
-                    ? `Faceit nickname "${nickname}" bulunamadı.`
-                    : `Faceit API hatası: ${faceitData.message || 'Bilinmeyen hata'}.`;
+            if (faceitRes.ok) {
+                faceitData = await faceitRes.json();
+            } else if (faceitRes.status === 404) {
+                // 2. If not found, try fetching with lowercase nickname
+                console.log(`Original nickname "${originalNickname}" not found. Trying lowercase.`);
+                faceitRes = await fetch(`https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(originalNickname.toLowerCase())}`, {
+                    headers: { Authorization: `Bearer ${env.FACEIT_API_KEY}` }
+                });
+                if (faceitRes.ok) {
+                    faceitData = await faceitRes.json();
+                } else {
+                    responseMessage = `Faceit nickname "${originalNickname}" bulunamadı. Lütfen tam ve doğru kullanıcı adınızı girdiğinizden emin olun.`;
+                }
             } else {
-                // Extract Faceit skill level for CSGO
-                faceitLevel = faceitData?.games?.csgo?.skill_level;
-                if (!faceitLevel) {
-                    responseMessage = `Faceit verisi eksik veya CSGO seviyesi tespit edilemedi.`;
+                // Handle other API errors
+                const errorData = await faceitRes.json();
+                responseMessage = `Faceit API hatası: ${errorData.message || 'Bilinmeyen hata'}. Lütfen tekrar deneyiniz.`;
+            }
+
+            if (faceitData) {
+                // Check if CSGO game data exists and then extract skill_level
+                if (faceitData.games && faceitData.games.csgo) {
+                    faceitLevel = faceitData.games.csgo.skill_level;
+                    if (faceitLevel === undefined || faceitLevel === null) {
+                        responseMessage = `Faceit hesabınızda CSGO seviyeniz tespit edilemedi veya eksik.`;
+                    }
+                } else {
+                    responseMessage = `Faceit hesabınızda CSGO oyunu bulunamadı veya CSGO verisi eksik.`;
                 }
             }
+
         } catch (e) {
             // Catch network or other fetch-related errors
             responseMessage = 'Faceit API ile bağlantı hatası oluştu. Lütfen tekrar deneyiniz.';
@@ -87,7 +107,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
         }
 
         // Proceed to assign role if Faceit level was successfully retrieved
-        if (faceitLevel !== null) {
+        if (faceitLevel !== null && faceitLevel !== undefined) {
             try {
                 // Fetch guild configuration from MongoDB to get Faceit level roles
                 const guildConfig = await db.collection('guild_configs').findOne({ guildId });
@@ -106,8 +126,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                 responseMessage = 'Rol atanırken bir hata oluştu.';
             }
         } else {
-            // If faceitLevel is null, it means there was an issue fetching Faceit data.
-            // The responseMessage should already reflect this.
+            // If faceitLevel is null or undefined, it means there was an issue fetching Faceit data or CSGO level.
+            // The responseMessage should already reflect this from the try-catch block above.
             if (!responseMessage) { // Fallback if for some reason responseMessage is empty
                 responseMessage = 'Faceit seviyeniz belirlenemediği için rol atanamadı.';
             }
@@ -121,7 +141,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                     $set: { // Fields to set or update
                         discordId: memberId,
                         guildId,
-                        faceitNickname: nickname,
+                        faceitNickname: originalNickname, // Store the original nickname provided by the user
                         faceitLevel,
                         assignedRoleId: roleIdToAssign, // Store the role that was attempted to be assigned
                         lastUpdated: new Date()
