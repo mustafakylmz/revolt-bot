@@ -34,6 +34,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 (async () => {
     try {
         console.log('Uygulama (/) komutları yenilenmeye başlanıyor.');
+        // This will register global commands. For guild-specific commands, use Routes.applicationGuildCommands(applicationId, guildId)
         await rest.put(
             Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
             { body: commands },

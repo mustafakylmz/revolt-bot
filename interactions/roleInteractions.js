@@ -52,6 +52,13 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             emoji: role.icon ? { id: null, name: role.icon } : undefined
         }));
 
+        // Determine the options to display in the select menu
+        const displayOptions = options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
+        
+        // Ensure max_values is at least 1 if there are any options to display
+        const maxValues = Math.max(1, displayOptions.length);
+
+
         const components = [
             {
                 type: ComponentType.ACTION_ROW,
@@ -61,8 +68,8 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
                         custom_id: 'multi_role_select',
                         placeholder: 'Rolleri Seçin',
                         min_values: 0,
-                        max_values: options.length,
-                        options: options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }] // Fallback for no roles
+                        max_values: maxValues, // Use the calculated maxValues
+                        options: displayOptions // Use the determined displayOptions
                     }
                 ]
             }
@@ -120,6 +127,12 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             emoji: role.icon ? { id: null, name: role.icon } : undefined
         }));
 
+        // Determine the options to display in the select menu
+        const displayOptions = options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
+        
+        // Ensure max_values is at least 1 if there are any options to display
+        const maxValues = Math.max(1, displayOptions.length);
+
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
@@ -133,8 +146,8 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
                                 custom_id: 'multi_role_select',
                                 placeholder: 'Rolleri Seçin',
                                 min_values: 0,
-                                max_values: options.length,
-                                options: options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }] // Fallback for no roles
+                                max_values: maxValues, // Use the calculated maxValues
+                                options: displayOptions // Use the determined displayOptions
                             }
                         ]
                     }
