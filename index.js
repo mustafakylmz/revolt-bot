@@ -1,12 +1,12 @@
 // index.js
 import express from 'express';
 import dotenv from 'dotenv';
-import { verifyKey, InteractionResponseFlags, InteractionResponseType, MessageComponentTypes } from 'discord-interactions'; // Added MessageComponentTypes
+import { verifyKey, InteractionResponseFlags, InteractionResponseType, MessageComponentTypes } from 'discord-interactions';
 import getRawBody from 'raw-body';
 import { REST } from '@discordjs/rest';
 import { Routes, ApplicationCommandOptionType } from 'discord-api-types/v10';
 import { MongoClient, ServerApiVersion } from 'mongodb';
-import { handleRoleInteraction, updateRoleSelectionMessage } from './interactions/roleInteractions.js'; // Import updateRoleSelectionMessage
+import { handleRoleInteraction, updateRoleSelectionMessage } from './interactions/roleInteractions.js';
 import { handleFaceitInteraction } from './interactions/faceitInteractions.js';
 
 dotenv.config();
@@ -215,7 +215,7 @@ app.post('/interactions', async (req, res) => {
     }
 
     try {
-        const { type, data, guild_id, channel_id } = interaction; // Added channel_id
+        const { type, data, guild_id, channel_id, member } = interaction; // Added member for user ID
 
         if (type === 1) {
             return res.send({ type: 1 }); // PONG response for Discord's health check
@@ -236,16 +236,62 @@ app.post('/interactions', async (req, res) => {
             const { name, options } = data;
             if (name === 'send-role-panel') {
                 const targetChannelId = options?.find(opt => opt.name === 'channel')?.value || channel_id;
-                await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true); // Pass true for initial send
+                
+                // Store the target channel ID temporarily for the follow-up interaction
+                // This is a simple in-memory store. For persistent or multi-user scenarios,
+                // you might store this in the database associated with the user/guild.
+                // For now, let's assume a single user might use this at a time or
+                // that the bot restarts are infrequent.
+                await db.collection('temp_interaction_data').updateOne(
+                    { userId: member.user.id, guildId: guild_id },
+                    { $set: { targetChannelId: targetChannelId, timestamp: new Date() } },
+                    { upsert: true }
+                );
+
+                const roles = await fetchRolesInfo(guild_id);
+                const optionsForSelect = roles.map(role => {
+                    const option = {
+                        label: role.name,
+                        value: role.id,
+                        default: false,
+                    };
+                    if (role.icon) {
+                        option.emoji = {
+                            id: role.id,
+                            name: role.name.replace(/[^a-zA-Z0-9_]/g, ''),
+                            animated: role.icon.startsWith('a_')
+                        };
+                    }
+                    return option;
+                });
+
+                const displayOptionsForSelect = optionsForSelect.length > 0 ? optionsForSelect : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
+                const maxValuesForSelect = Math.max(1, displayOptionsForSelect.length);
+
                 return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
-                        content: `Rol seçim paneli <#${targetChannelId}> kanalına gönderildi/güncellendi.`,
-                        flags: InteractionResponseFlags.EPHEMERAL
+                        content: 'Panele eklemek istediğiniz rolleri seçin:',
+                        components: [
+                            {
+                                type: MessageComponentTypes.ACTION_ROW,
+                                components: [
+                                    {
+                                        type: MessageComponentTypes.STRING_SELECT,
+                                        custom_id: 'select_roles_for_panel', // New custom_id for this specific select
+                                        placeholder: 'Panele eklenecek rolleri seçin',
+                                        min_values: 0,
+                                        max_values: maxValuesForSelect,
+                                        options: displayOptionsForSelect
+                                    }
+                                ]
+                            }
+                        ],
+                        flags: InteractionResponseFlags.EPHEMERAL // This message is ephemeral
                     }
                 });
             } else if (name === 'refresh-role-panel') {
-                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false); // Pass false for refresh
+                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false);
                 return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
@@ -253,12 +299,75 @@ app.post('/interactions', async (req, res) => {
                         flags: InteractionResponseFlags.EPHEMERAL
                     }
                 });
+            } else if (name === 'faceit-role-button') {
+                await res.send({
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: 'Faceit seviyenize göre rol almak için aşağıdaki butona tıklayın:',
+                        components: [
+                            {
+                                type: MessageComponentTypes.ACTION_ROW,
+                                components: [
+                                    {
+                                        type: MessageComponentTypes.BUTTON,
+                                        custom_id: 'faceit_role_request_button',
+                                        style: 1, // Primary style
+                                        label: 'Faceit Rolü Talep Et',
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                });
+                return;
             }
         }
 
 
-        if (type === 2 || type === 3 || type === 5) { // APPLICATION_COMMAND, MESSAGE_COMPONENT, MODAL_SUBMIT
+        if (type === 3) { // MESSAGE_COMPONENT (e.g., from select menu or button)
             const custom_id = data?.custom_id;
+
+            if (custom_id === 'select_roles_for_panel') {
+                await res.send({ // Defer the update to the ephemeral message
+                    type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+                    data: {
+                        flags: InteractionResponseFlags.EPHEMERAL
+                    }
+                });
+
+                const selectedRoleIds = data.values || [];
+                const tempInteractionData = await db.collection('temp_interaction_data').findOne({ userId: member.user.id, guildId: guild_id });
+                const targetChannelId = tempInteractionData?.targetChannelId || channel_id; // Fallback to current channel
+
+                if (!targetChannelId) {
+                    await rest.patch(
+                        Routes.webhookMessage(applicationId, interaction.token),
+                        {
+                            body: {
+                                content: 'Hata: Hedef kanal bulunamadı. Lütfen tekrar deneyin.',
+                                flags: InteractionResponseFlags.EPHEMERAL
+                            }
+                        }
+                    );
+                    return;
+                }
+
+                // Call updateRoleSelectionMessage with the selected roles
+                await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds);
+
+                await rest.patch(
+                    Routes.webhookMessage(applicationId, interaction.token),
+                    {
+                        body: {
+                            content: `Rol seçim paneli <#${targetChannelId}> kanalında seçilen rollerle güncellendi.`,
+                            flags: InteractionResponseFlags.EPHEMERAL
+                        }
+                    }
+                );
+                // Clean up temporary data
+                await db.collection('temp_interaction_data').deleteOne({ userId: member.user.id, guildId: guild_id });
+                return;
+            }
 
             if (['select_roles_button', 'multi_role_select'].includes(custom_id)) {
                 await handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo);
@@ -266,6 +375,14 @@ app.post('/interactions', async (req, res) => {
             }
 
             if (custom_id === 'faceit_role_request_button' || custom_id === 'modal_faceit_nickname_submit') {
+                await handleFaceitInteraction(interaction, res, rest, applicationId, process.env, db);
+                return;
+            }
+        }
+
+        if (type === 5) { // MODAL_SUBMIT
+            const custom_id = data?.custom_id;
+            if (custom_id === 'modal_faceit_nickname_submit') {
                 await handleFaceitInteraction(interaction, res, rest, applicationId, process.env, db);
                 return;
             }
@@ -305,12 +422,9 @@ app.listen(PORT, async () => {
     console.log(`Sunucu port ${PORT} uzerinde dinleniyor.`);
     await connectToMongoDB();
 
-    // Schedule daily rank check (every 24 hours)
-    // For production, consider a dedicated cron job service or a more robust scheduler.
     const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
     setInterval(checkAndUpdateFaceitRanks, ONE_DAY_IN_MS);
     console.log("Faceit rank kontrolü günlük olarak planlandı.");
 
-    // Optionally run once on startup
     checkAndUpdateFaceitRanks();
 });

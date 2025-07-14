@@ -24,8 +24,9 @@ const ComponentType = {
  * @param {string} applicationId - The Discord bot's application ID.
  * @param {function} fetchRolesInfo - Function to fetch configurable roles for a guild.
  * @param {boolean} isInitialSend - True if this is the initial command to send the message, false for refresh.
+ * @param {string[]|null} specificRoleIds - Optional array of specific role IDs to include in the panel.
  */
-export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend) {
+export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend, specificRoleIds = null) {
     try {
         let guildConfig = await db.collection('guild_configs').findOne({ guildId });
         let messageId = guildConfig?.rolePanelMessageId;
@@ -36,20 +37,41 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             return;
         }
 
-        const roles = await fetchRolesInfo(guildId);
+        let roles = await fetchRolesInfo(guildId); // Get all configurable roles
+
+        // If specificRoleIds are provided, filter the roles
+        if (specificRoleIds && specificRoleIds.length > 0) {
+            const specifiedRoleSet = new Set(specificRoleIds);
+            roles = roles.filter(role => specifiedRoleSet.has(role.id));
+
+            // Log if any specified role IDs were not found among configurable roles
+            specificRoleIds.forEach(id => {
+                if (!roles.some(role => role.id === id)) { // Check against filtered roles
+                    console.warn(`Belirtilen rol ID'si ${id} yapılandırılabilir roller arasında bulunamadı veya filtrelendi.`);
+                }
+            });
+        }
 
         if (!roles || roles.length === 0) {
             console.warn(`Guild ${guildId} için yapılandırılmış atanabilir roller bulunamadı. Rol paneli boş gönderilecek/güncellenecek.`);
         }
 
-        const options = roles.map(role => ({
-            label: role.name,
-            value: role.id,
-            default: false,
-            // Removed emoji: role.icon ? { id: null, name: role.icon } : undefined
-            // role.icon is a hash for role icons, not a valid emoji for select menu options.
-            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
-        }));
+        const options = roles.map(role => {
+            const option = {
+                label: role.name,
+                value: role.id,
+                default: false,
+            };
+            // Add emoji if role.icon exists and is a valid format for Discord custom emojis
+            if (role.icon) {
+                option.emoji = {
+                    id: role.id, // Use role ID as emoji ID if it's a custom role icon
+                    name: role.name.replace(/[^a-zA-Z0-9_]/g, ''), // Sanitize name for emoji name field
+                    animated: role.icon.startsWith('a_') // Check if it's an animated icon
+                };
+            }
+            return option;
+        });
 
         // Determine the options to display in the select menu
         const displayOptions = options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
@@ -64,7 +86,7 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
                 components: [
                     {
                         type: ComponentType.STRING_SELECT,
-                        custom_id: 'multi_role_select',
+                        custom_id: 'multi_role_select', // This custom_id is for the actual role selection
                         placeholder: 'Rolleri Seçin',
                         min_values: 0,
                         max_values: maxValues, // Use the calculated maxValues
@@ -101,12 +123,12 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
 
 
 export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
-    const { custom_id, type } = interaction.data; // Added type for clarity
+    const { custom_id, type } = interaction.data;
     const guildId = interaction.guild_id;
     const memberId = interaction.member.user.id;
 
     // Handle the initial button click to open the ephemeral role selection menu
-    if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) { // Ensure it's a button click
+    if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) {
         const roles = await fetchRolesInfo(guildId);
 
         if (!roles || roles.length === 0) {
@@ -119,14 +141,22 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             });
         }
 
-        const options = roles.map(role => ({
-            label: role.name,
-            value: role.id,
-            default: false,
-            // Removed emoji: role.icon ? { id: null, name: role.icon } : undefined
-            // role.icon is a hash for role icons, not a valid emoji for select menu options.
-            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
-        }));
+        const options = roles.map(role => {
+            const option = {
+                label: role.name,
+                value: role.id,
+                default: false,
+            };
+            // Add emoji if role.icon exists and is a valid format for Discord custom emojis
+            if (role.icon) {
+                option.emoji = {
+                    id: role.id, // Use role ID as emoji ID if it's a custom role icon
+                    name: role.name.replace(/[^a-zA-Z0-9_]/g, ''), // Sanitize name for emoji name field
+                    animated: role.icon.startsWith('a_') // Check if it's an animated icon
+                };
+            }
+            return option;
+        });
 
         // Determine the options to display in the select menu
         const displayOptions = options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
