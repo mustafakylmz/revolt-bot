@@ -8,6 +8,9 @@ import { Routes, ApplicationCommandOptionType } from 'discord-api-types/v10';
 import { MongoClient, ServerApiVersion } from 'mongodb';
 import { handleRoleInteraction, updateRoleSelectionMessage } from './interactions/roleInteractions.js';
 import { handleFaceitInteraction } from './interactions/faceitInteractions.js';
+import path from 'path'; // For serving static files
+import { fileURLToPath } from 'url'; // For __dirname equivalent
+import axios from 'axios'; // For making HTTP requests (OAuth2)
 
 dotenv.config();
 
@@ -16,6 +19,12 @@ const PORT = process.env.PORT || 8080;
 const applicationId = process.env.DISCORD_CLIENT_ID;
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 
+// OAuth2 Configuration
+const DISCORD_CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const DISCORD_CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const DISCORD_REDIRECT_URI = process.env.DISCORD_REDIRECT_URI; // e.g., http://localhost:8080/auth/discord/callback
+
+// MongoDB Connection
 const uri = process.env.MONGO_URI;
 if (!uri) {
     console.error("Hata: MONGO_URI tanımlı değil.");
@@ -42,6 +51,14 @@ async function connectToMongoDB() {
         process.exit(1);
     }
 }
+
+// __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Serve static files from the React app (build folder)
+app.use(express.static(path.join(__dirname, 'client/build')));
+app.use(express.json()); // For parsing JSON request bodies
 
 /**
  * Fetches the configurable role IDs for a given guild from the database.
@@ -197,6 +214,7 @@ async function checkAndUpdateFaceitRanks() {
     }
 }
 
+// --- Discord Interactions (Bot Commands) ---
 app.post('/interactions', async (req, res) => {
     let rawBody;
     try {
@@ -442,10 +460,149 @@ app.post('/interactions', async (req, res) => {
     }
 });
 
+// --- Web Interface (React App) API Endpoints ---
+
+// OAuth2 Login Redirect
+app.get('/auth/discord', (req, res) => {
+    const authorizeUrl = `https://discord.com/oauth2/authorize?client_id=${DISCORD_CLIENT_ID}&redirect_uri=${encodeURIComponent(DISCORD_REDIRECT_URI)}&response_type=code&scope=identify%20guilds`;
+    res.redirect(authorizeUrl);
+});
+
+// OAuth2 Callback
+app.get('/auth/discord/callback', async (req, res) => {
+    const code = req.query.code;
+    if (!code) {
+        return res.status(400).send('Discord OAuth2 code not provided.');
+    }
+
+    try {
+        const tokenResponse = await axios.post('https://discord.com/api/oauth2/token', new URLSearchParams({
+            client_id: DISCORD_CLIENT_ID,
+            client_secret: DISCORD_CLIENT_SECRET,
+            grant_type: 'authorization_code',
+            code: code,
+            redirect_uri: DISCORD_REDIRECT_URI,
+            scope: 'identify guilds'
+        }), {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+
+        const { access_token, token_type } = tokenResponse.data;
+
+        // Fetch user info
+        const userResponse = await axios.get('https://discord.com/api/users/@me', {
+            headers: {
+                authorization: `${token_type} ${access_token}`
+            }
+        });
+        const user = userResponse.data;
+
+        // Fetch user's guilds
+        const userGuildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
+            headers: {
+                authorization: `${token_type} ${access_token}`
+            }
+        });
+        const userGuilds = userGuildsResponse.data;
+
+        // In a real app, you'd store access_token securely (e.g., in a session or database)
+        // For this example, we'll send it back to the frontend to store in localStorage
+        res.redirect(`/?access_token=${access_token}&user_id=${user.id}&username=${user.username}`);
+
+    } catch (error) {
+        console.error('Discord OAuth2 callback hatası:', error.response?.data || error.message);
+        res.status(500).send('Kimlik doğrulama sırasında bir hata oluştu.');
+    }
+});
+
+// API to get guilds where the user is present AND the bot is also in
+app.get('/api/guilds', async (req, res) => {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).json({ message: 'Yetkilendirme gerekli.' });
+    }
+    const [tokenType, accessToken] = authHeader.split(' ');
+
+    if (tokenType !== 'Bearer' || !accessToken) {
+        return res.status(401).json({ message: 'Geçersiz yetkilendirme formatı.' });
+    }
+
+    try {
+        // Get user's guilds
+        const userGuildsResponse = await axios.get('https://discord.com/api/users/@me/guilds', {
+            headers: {
+                authorization: `${tokenType} ${accessToken}`
+            }
+        });
+        const userGuilds = userGuildsResponse.data;
+
+        // Get bot's guilds (requires BOT_TOKEN)
+        const botGuildsResponse = await rest.get(Routes.userGuilds(applicationId)); // Routes.userGuilds(botId)
+        const botGuildIds = new Set(botGuildsResponse.map(g => g.id));
+
+        // Filter user's guilds to only include those where the bot is also present
+        const commonGuilds = userGuilds.filter(userGuild => botGuildIds.has(userGuild.id));
+
+        // You might want to filter for guilds where the user has manage_guild permission
+        const adminGuilds = commonGuilds.filter(guild => (guild.permissions & (1 << 3)) === (1 << 3)); // MANAGE_GUILD permission (value 3)
+
+        res.json(adminGuilds);
+
+    } catch (error) {
+        console.error('Sunucular alınırken hata:', error.response?.data || error.message);
+        res.status(500).json({ message: 'Sunucular alınırken bir hata oluştu.' });
+    }
+});
+
+// API to get/update guild configuration
+app.route('/api/guilds/:guildId/config')
+    .get(async (req, res) => {
+        const { guildId } = req.params;
+        try {
+            const guildConfig = await db.collection('guild_configs').findOne({ guildId });
+            if (!guildConfig) {
+                return res.status(404).json({ message: 'Bu sunucu için yapılandırma bulunamadı.' });
+            }
+            res.json(guildConfig);
+        } catch (error) {
+            console.error(`Sunucu yapılandırması alınırken hata (${guildId}):`, error);
+            res.status(500).json({ message: 'Sunucu yapılandırması alınırken bir hata oluştu.' });
+        }
+    })
+    .post(async (req, res) => { // Using POST for updates for simplicity, PUT/PATCH might be more RESTful
+        const { guildId } = req.params;
+        const newConfig = req.body; // Expecting the full config object
+
+        // Basic validation (you should add more robust validation)
+        if (!newConfig || Object.keys(newConfig).length === 0) {
+            return res.status(400).json({ message: 'Geçersiz yapılandırma verisi.' });
+        }
+
+        try {
+            const result = await db.collection('guild_configs').updateOne(
+                { guildId },
+                { $set: newConfig },
+                { upsert: true }
+            );
+            res.json({ message: 'Yapılandırma başarıyla güncellendi.', result });
+        } catch (error) {
+            console.error(`Sunucu yapılandırması güncellenirken hata (${guildId}):`, error);
+            res.status(500).json({ message: 'Sunucu yapılandırması güncellenirken bir hata oluştu.' });
+        }
+    });
+
+// Catch-all for React app routing
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'client/build', 'index.html'));
+});
+
 app.listen(PORT, async () => {
     console.log(`Sunucu port ${PORT} uzerinde dinleniyor.`);
     await connectToMongoDB();
 
+    // Schedule daily rank check (every 24 hours)
     const ONE_DAY_IN_MS = 24 * 60 * 60 * 1000;
     setInterval(checkAndUpdateFaceitRanks, ONE_DAY_IN_MS);
     console.log("Faceit rank kontrolü günlük olarak planlandı.");
