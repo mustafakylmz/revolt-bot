@@ -15,74 +15,138 @@ const ComponentType = {
 };
 
 /**
- * Handles role-related interactions, including displaying a role selection menu
- * and updating user roles based on their selections.
- * @param {object} interaction - The Discord interaction object.
- * @param {object} res - The Express response object.
+ * Updates or sends a persistent role selection message in a Discord channel.
+ * This function handles both initial sending and subsequent updates.
+ * @param {string} guildId - The ID of the guild.
+ * @param {string|null} channelId - The ID of the channel to send/update the message in. If null, tries to use stored channelId.
+ * @param {object} db - The MongoDB database instance.
  * @param {object} rest - The Discord REST API client.
  * @param {string} applicationId - The Discord bot's application ID.
- * @param {object} db - The MongoDB database instance (though not directly used in this snippet, kept for consistency).
  * @param {function} fetchRolesInfo - Function to fetch configurable roles for a guild.
+ * @param {boolean} isInitialSend - True if this is the initial command to send the message, false for refresh.
  */
+export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend) {
+    try {
+        let guildConfig = await db.collection('guild_configs').findOne({ guildId });
+        let messageId = guildConfig?.rolePanelMessageId;
+        let targetChannelId = channelId || guildConfig?.rolePanelChannelId;
+
+        if (!targetChannelId) {
+            console.error(`Guild ${guildId} için rol paneli kanalı tanımlı değil.`);
+            // If it's an initial send command and no channel is provided, it means
+            // the command itself didn't specify a channel, and no default is stored.
+            // In a real scenario, the slash command would require a channel option.
+            return;
+        }
+
+        const roles = await fetchRolesInfo(guildId);
+
+        if (!roles || roles.length === 0) {
+            console.warn(`Guild ${guildId} için yapılandırılmış atanabilir roller bulunamadı. Rol paneli boş gönderilecek/güncellenecek.`);
+        }
+
+        const options = roles.map(role => ({
+            label: role.name,
+            value: role.id,
+            default: false,
+            emoji: role.icon ? { id: null, name: role.icon } : undefined
+        }));
+
+        const components = [
+            {
+                type: ComponentType.ACTION_ROW,
+                components: [
+                    {
+                        type: ComponentType.STRING_SELECT,
+                        custom_id: 'multi_role_select',
+                        placeholder: 'Rolleri Seçin',
+                        min_values: 0,
+                        max_values: options.length,
+                        options: options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }] // Fallback for no roles
+                    }
+                ]
+            }
+        ];
+
+        const messagePayload = {
+            content: 'Almak istediğiniz rolleri seçin:',
+            components: components,
+        };
+
+        if (isInitialSend || !messageId) {
+            // Send new message if it's an initial send command or messageId is not stored
+            const sentMessage = await rest.post(Routes.channelMessages(targetChannelId), { body: messagePayload });
+            await db.collection('guild_configs').updateOne(
+                { guildId },
+                { $set: { rolePanelChannelId: targetChannelId, rolePanelMessageId: sentMessage.id } },
+                { upsert: true }
+            );
+            console.log(`Guild ${guildId} için rol paneli mesajı ${sentMessage.id} kanal ${targetChannelId} adresine gönderildi.`);
+        } else {
+            // Edit existing message
+            await rest.patch(Routes.channelMessage(targetChannelId, messageId), { body: messagePayload });
+            console.log(`Guild ${guildId} için rol paneli mesajı ${messageId} güncellendi.`);
+        }
+
+    } catch (error) {
+        console.error(`Rol seçim paneli gönderilirken/güncellenirken hata (Guild ${guildId}):`, error);
+    }
+}
+
+
 export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
-    const { custom_id } = interaction.data;
+    const { custom_id, type } = interaction.data; // Added type for clarity
     const guildId = interaction.guild_id;
     const memberId = interaction.member.user.id;
 
-    // Handle the initial button click to open the role selection menu
-    if (custom_id === 'select_roles_button') {
-        // Fetch the roles that are configured as assignable for this guild
+    // Handle the initial button click to open the ephemeral role selection menu
+    if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) { // Ensure it's a button click
         const roles = await fetchRolesInfo(guildId);
 
-        // If no configurable roles are found, send an ephemeral message
         if (!roles || roles.length === 0) {
             return res.send({
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     content: 'Yapılandırılmış atanabilir roller bulunamadı.',
-                    flags: InteractionResponseFlags.EPHEMERAL // Only visible to the user
+                    flags: InteractionResponseFlags.EPHEMERAL
                 }
             });
         }
 
-        // Map the fetched roles into the format required for Discord select menu options
         const options = roles.map(role => ({
-            label: role.name, // Display name of the role
-            value: role.id,   // Value to be returned when selected (role ID)
-            default: false,   // Whether this option is pre-selected (false for new selection)
-            // Add emoji if the role has one (Discord role icons)
+            label: role.name,
+            value: role.id,
+            default: false,
             emoji: role.icon ? { id: null, name: role.icon } : undefined
         }));
 
-        // Send a message with a multi-select dropdown for roles
         return res.send({
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
                 content: 'Almak istediğiniz rolleri seçin:',
                 components: [
                     {
-                        type: ComponentType.ACTION_ROW, // Container for interactive components
+                        type: ComponentType.ACTION_ROW,
                         components: [
                             {
-                                type: ComponentType.STRING_SELECT, // String select menu component
-                                custom_id: 'multi_role_select', // Custom ID for this select menu
-                                placeholder: 'Rolleri Seçin', // Placeholder text when nothing is selected
-                                min_values: 0, // Allow selecting zero roles (e.g., to remove all)
-                                max_values: options.length, // Allow selecting up to all available roles
-                                options: options // The array of role options
+                                type: ComponentType.STRING_SELECT,
+                                custom_id: 'multi_role_select',
+                                placeholder: 'Rolleri Seçin',
+                                min_values: 0,
+                                max_values: options.length,
+                                options: options.length > 0 ? options : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }] // Fallback for no roles
                             }
                         ]
                     }
                 ],
-                flags: InteractionResponseFlags.EPHEMERAL // Only visible to the user
+                flags: InteractionResponseFlags.EPHEMERAL
             }
         });
     }
 
-    // Handle the submission from the role selection menu
+    // Rol seçim menüsünden seçim yapıldığında rollerin atanması
     if (custom_id === 'multi_role_select') {
         // Immediately defer the update to the message containing the select menu
-        // This keeps the interaction token alive while roles are being updated.
         await res.send({
             type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
             data: {
@@ -90,31 +154,23 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             }
         });
 
-        // Get the IDs of the roles selected by the user
-        const selectedRoleIds = interaction.data.values || []; // Ensure it's an array, even if empty
-
-        // Fetch all configurable roles again to compare against
+        const selectedRoleIds = interaction.data.values || [];
         const roles = await fetchRolesInfo(guildId);
         const allConfigurableIds = roles.map(role => role.id);
 
         try {
-            // Iterate through all configurable roles
             for (const roleId of allConfigurableIds) {
                 try {
                     if (selectedRoleIds.includes(roleId)) {
-                        // If the role was selected, add it to the member
                         await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
                     } else {
-                        // If the role was not selected, remove it from the member
                         await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
                     }
                 } catch (err) {
-                    // Log a warning if a specific role update fails, but continue with others
-                    console.warn(`Rol güncelleme hatası (rolId: ${roleId}):`, err);
+                    console.warn(`Rol güncelleme hatası (rolId: ${roleId}, kullanıcı: ${memberId}):`, err);
                 }
             }
 
-            // Send a success message back to the user by editing the deferred message
             return await rest.patch(
                 Routes.webhookMessage(applicationId, interaction.token),
                 {
@@ -125,9 +181,7 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
                 }
             );
         } catch (error) {
-            // Catch any unexpected errors during the role update process
             console.error('Rol güncelleme sırasında hata:', error);
-            // Send an error message back to the user by editing the deferred message
             return await rest.patch(
                 Routes.webhookMessage(applicationId, interaction.token),
                 {
@@ -140,7 +194,7 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
         }
     }
 
-    // Default response for any unhandled role interactions
+    // Bilinmeyen etkileşim
     return res.send({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
