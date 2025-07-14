@@ -3,7 +3,7 @@ const {
     InteractionResponseType,
     InteractionResponseFlags,
     MessageComponentTypes,
-    TextInputStyles,
+    TextInputStyles, // TextInputStyles buraya destructure edilmiş durumda
     InteractionType
 } = pkg;
 
@@ -61,7 +61,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                                     {
                                         type: MessageComponentTypes.TEXT_INPUT,
                                         custom_id: 'faceit_nickname_input',
-                                        style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
+                                        style: TextInputStyles.SHORT, // Düzeltme: TextInputStyles.SHORT kullanıldı
                                         label: 'Faceit Kullanıcı Adınız:',
                                         placeholder: 'örnek: shroud',
                                         required: true,
@@ -73,6 +73,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         ],
                     },
                 });
+                // Bu log, res.send'den sonra çalışırsa modal yanıtının tamamlandığını gösterir.
+                // console.log("faceitInteractions: Modal yanıtı başarıyla gönderildi (res.send tamamlandı)."); 
             } catch (sendError) {
                 console.error("faceitInteractions: Modal yanıtı gönderme sırasında kritik hata:", sendError);
                 // Modal gönderilemezse kullanıcıya hata mesajı gönder
