@@ -49,7 +49,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
             console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal gönderiliyor..."); // DEBUG LOG
             try {
                 console.log("faceitInteractions: Modal yanıtı gönderilmeden önce."); // DEBUG LOG
-                res.send({ // return kaldırıldı, sadece res.send
+                // Düzeltme: res.send çağrısının önüne 'return' eklendi.
+                return res.send({ 
                     type: InteractionResponseType.MODAL,
                     data: {
                         custom_id: 'modal_faceit_nickname_submit',
@@ -73,8 +74,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         ],
                     },
                 });
-                console.log("faceitInteractions: Modal yanıtı başarıyla gönderildi."); // DEBUG LOG
-                return; // Yanıt gönderildikten sonra fonksiyonu sonlandır
+                // Bu log artık unreachable olacak, çünkü return ifadesi fonksiyonu sonlandırır.
+                // console.log("faceitInteractions: Modal yanıtı başarıyla gönderildi."); 
             } catch (sendError) {
                 console.error("faceitInteractions: Modal yanıtı gönderme sırasında kritik hata:", sendError);
                 try {
