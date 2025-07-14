@@ -4,7 +4,7 @@ const {
     InteractionResponseFlags,
     MessageComponentTypes,
     TextInputStyles,
-    InteractionType // Düzeltme: InteractionType buraya eklendi
+    InteractionType
 } = pkg;
 
 // Düzeltme: Routes artık @discordjs/rest yerine discord-api-types/v10'dan import ediliyor.
@@ -24,9 +24,9 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
     const guildId = interaction.guild_id;
 
     // Etkileşim tipine göre defer yanıtını ayarla
+    // Faceit rol alma butonu için (MESSAGE_COMPONENT) doğrudan MODAL yanıtı gönderileceği için
+    // burada bir defer yanıtı GÖNDERİLMEZ.
     if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-        // Modal doğrudan yanıt olarak gönderileceği için burada defer yanıtı GÖNDERİLMEZ.
-        // Bu yüzden custom_id kontrolü yapıyoruz.
         if (custom_id !== 'faceit_role_request_button') {
             console.log(`faceitInteractions: DEFERRED_UPDATE_MESSAGE gönderiliyor for custom_id: ${custom_id}`); // DEBUG LOG
             await res.send({
@@ -35,6 +35,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
             });
         }
     } else if (interaction.type === InteractionType.MODAL_SUBMIT) {
+        // Modal gönderimi için (MODAL_SUBMIT) defer yanıtı gereklidir, çünkü API çağrısı yapılacaktır.
         console.log(`faceitInteractions: Modal gönderimi alındı. custom_id: ${custom_id}. Defer yanıtı gönderiliyor...`); // DEBUG LOG
         await res.send({
             type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -47,7 +48,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
             console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal gönderiliyor..."); // DEBUG LOG
             try {
-                return res.send({
+                console.log("faceitInteractions: Modal yanıtı gönderilmeden önce."); // DEBUG LOG
+                res.send({ // return kaldırıldı, sadece res.send
                     type: InteractionResponseType.MODAL,
                     data: {
                         custom_id: 'modal_faceit_nickname_submit',
@@ -71,6 +73,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         ],
                     },
                 });
+                console.log("faceitInteractions: Modal yanıtı başarıyla gönderildi."); // DEBUG LOG
+                return; // Yanıt gönderildikten sonra fonksiyonu sonlandır
             } catch (sendError) {
                 console.error("faceitInteractions: Modal yanıtı gönderme sırasında kritik hata:", sendError);
                 try {
