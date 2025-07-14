@@ -7,6 +7,9 @@ const {
 
 import { Routes } from 'discord-api-types/v10';
 
+// MongoDB'den doc ve getDoc yerine, doğrudan db objesini kullanacağız.
+// Bu dosya kendi başına veritabanı bağlantısı kurmaz, index.js'ten alır.
+
 /**
  * Rol seçimi ve atama etkileşimlerini işler.
  * @param {object} interaction - Discord etkileşim objesi.
