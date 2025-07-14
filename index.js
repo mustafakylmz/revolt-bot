@@ -6,12 +6,13 @@ const {
     InteractionType,
     InteractionResponseType,
     InteractionResponseFlags,
-    MessageComponentTypes,
-    ApplicationCommandOptionType // Düzeltme: ApplicationCommandOptionType tekrar buradan destructure edildi
+    MessageComponentTypes
+    // ApplicationCommandOptionType artık buradan destructure edilmiyor
 } = pkg;
 
 import { REST } from '@discordjs/rest';
-import { Routes } from 'discord-api-types/v10';
+// Düzeltme: ApplicationCommandOptionType artık discord-api-types/v10'dan import ediliyor
+import { Routes, ApplicationCommandOptionType } from 'discord-api-types/v10'; 
 
 // MongoDB imports
 import { MongoClient, ServerApiVersion } from 'mongodb';
