@@ -89,14 +89,23 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
             }
 
             if (faceitData) {
-                // Check if CSGO game data exists and then extract skill_level
-                if (faceitData.games && faceitData.games.csgo) {
+                // --- Prioritize CS2, then fallback to CSGO ---
+                if (faceitData.games && faceitData.games.cs2) {
+                    faceitLevel = faceitData.games.cs2.skill_level;
+                    if (faceitLevel === undefined || faceitLevel === null) {
+                        responseMessage = `Faceit hesabınızda CS2 seviyeniz tespit edilemedi veya eksik.`;
+                    } else {
+                        responseMessage = `Faceit CS2 seviyeniz ${faceitLevel}.`;
+                    }
+                } else if (faceitData.games && faceitData.games.csgo) {
                     faceitLevel = faceitData.games.csgo.skill_level;
                     if (faceitLevel === undefined || faceitLevel === null) {
                         responseMessage = `Faceit hesabınızda CSGO seviyeniz tespit edilemedi veya eksik.`;
+                    } else {
+                        responseMessage = `Faceit CSGO seviyeniz ${faceitLevel}.`;
                     }
                 } else {
-                    responseMessage = `Faceit hesabınızda CSGO oyunu bulunamadı veya CSGO verisi eksik.`;
+                    responseMessage = `Faceit hesabınızda CS2 veya CSGO oyunu bulunamadı veya verisi eksik.`;
                 }
             }
 
@@ -117,9 +126,11 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                 if (roleIdToAssign) {
                     // Assign the role to the member
                     await rest.put(Routes.guildMemberRole(guildId, memberId, roleIdToAssign));
-                    responseMessage = `Faceit seviyeniz ${faceitLevel} ve rol başarıyla atandı.`;
+                    // Update response message if role was successfully assigned after getting level
+                    responseMessage = responseMessage.includes("seviyeniz") ? responseMessage + " ve rol başarıyla atandı." : `Faceit seviyeniz ${faceitLevel} ve rol başarıyla atandı.`;
                 } else {
-                    responseMessage = `Faceit seviyesi ${faceitLevel} için tanımlı rol bulunamadı.`;
+                    // Update response message if no role is defined for the level
+                    responseMessage = responseMessage.includes("seviyeniz") ? responseMessage + " ancak bu seviye için tanımlı rol bulunamadı." : `Faceit seviyesi ${faceitLevel} için tanımlı rol bulunamadı.`;
                 }
             } catch (e) {
                 console.error('Rol atama hatası:', e);
