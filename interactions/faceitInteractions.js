@@ -7,7 +7,6 @@ const {
     InteractionType
 } = pkg;
 
-// Düzeltme: Routes artık @discordjs/rest yerine discord-api-types/v10'dan import ediliyor.
 import { Routes } from 'discord-api-types/v10';
 
 /**
@@ -17,8 +16,9 @@ import { Routes } from 'discord-api-types/v10';
  * @param {object} rest - Discord REST client.
  * @param {string} applicationId - Botun uygulama ID'si.
  * @param {object} env - Ortam değişkenlerini içeren obje (process.env).
+ * @param {object} db - MongoDB veritabanı objesi (şu an doğrudan kullanılmıyor ama parametre olarak iletiliyor).
  */
-export async function handleFaceitInteraction(interaction, res, rest, applicationId, env) {
+export async function handleFaceitInteraction(interaction, res, rest, applicationId, env, db) {
     const { custom_id } = interaction.data;
     const memberId = interaction.member.user.id;
     const guildId = interaction.guild_id;
