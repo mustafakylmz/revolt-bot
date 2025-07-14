@@ -5,7 +5,6 @@ const {
     MessageComponentTypes
 } = pkg;
 
-// Düzeltme: Routes artık @discordjs/rest yerine discord-api-types/v10'dan import ediliyor.
 import { Routes } from 'discord-api-types/v10';
 
 /**
@@ -14,10 +13,10 @@ import { Routes } from 'discord-api-types/v10';
  * @param {object} res - Express yanıt objesi.
  * @param {object} rest - Discord REST client.
  * @param {string} applicationId - Botun uygulama ID'si.
- * @param {string[]} roleIds - Sunucuda atanabilir rol ID'lerinin listesi.
- * @param {function} fetchRolesInfo - Rol bilgilerini çeken yardımcı fonksiyon.
+ * @param {object} db - MongoDB veritabanı objesi.
+ * @param {function} fetchRolesInfo - Rol bilgilerini Discord API'den çeken yardımcı fonksiyon.
  */
-export async function handleRoleInteraction(interaction, res, rest, applicationId, roleIds, fetchRolesInfo) {
+export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
     const { custom_id } = interaction.data;
     const memberId = interaction.member.user.id;
     const guildId = interaction.guild_id;
@@ -32,7 +31,8 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
     switch (custom_id) {
         case 'select_roles_button': // "Rolleri Seç" butonuna basıldığında tetiklenir
             console.log("roleInteractions: select_roles_button tıklandı."); // DEBUG LOG
-            const rolesInfo = await fetchRolesInfo(guildId, roleIds);
+            // fetchRolesInfo artık guildId'yi parametre olarak alıyor ve MongoDB'den rolleri çekiyor
+            const rolesInfo = await fetchRolesInfo(guildId); 
 
             const options = rolesInfo.map(role => {
                 return {
