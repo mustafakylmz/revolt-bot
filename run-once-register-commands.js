@@ -8,19 +8,13 @@ dotenv.config();
 const commands = [
     {
         name: 'send-role-panel',
-        description: 'Belirtilen kanala rol seçim paneli gönderir veya günceller.',
+        description: 'Belirtilen kanala rol seçim paneli gönderir. Roller bir sonraki adımda seçilir.',
         options: [
             {
                 name: 'channel',
                 description: 'Panelin gönderileceği kanal.',
                 type: ApplicationCommandOptionType.Channel,
                 required: false, // Make it optional, default to current channel
-            },
-            {
-                name: 'roles',
-                description: 'Panele dahil edilecek rol ID\'lerinin virgülle ayrılmış listesi (örn: 123,456,789).',
-                type: ApplicationCommandOptionType.String,
-                required: false,
             },
         ],
     },

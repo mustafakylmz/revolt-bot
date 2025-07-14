@@ -38,33 +38,41 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             return;
         }
 
-        let roles = await fetchRolesInfo(guildId); // Get all configurable roles
-
-        // If specificRoleIds are provided, filter the roles
-        if (specificRoleIds && specificRoleIds.length > 0) {
-            const specifiedRoleSet = new Set(specificRoleIds);
-            roles = roles.filter(role => specifiedRoleSet.has(role.id));
-
-            // Log if any specified role IDs were not found among configurable roles
-            specificRoleIds.forEach(id => {
-                if (!roles.some(role => role.id === id)) { // Check against filtered roles
-                    console.warn(`Belirtilen rol ID'si ${id} yapılandırılabilir roller arasında bulunamadı veya filtrelendi.`);
-                }
-            });
+        // fetchRolesInfo'ya filterRoleIds parametresi eklendi
+        // Eğer specificRoleIds varsa, sadece o rolleri getir. Yoksa, veritabanındaki configurableRoleIds'ı kullan.
+        // Bu, kalıcı panelin sadece admin tarafından seçilen rolleri göstermesini sağlar.
+        let rolesToDisplay = [];
+        if (specificRoleIds) { // If specific roles are passed from the /send-role-panel selection
+            rolesToDisplay = await fetchRolesInfo(guildId, specificRoleIds);
+        } else { // If refreshing or initial send without specific selection (e.g., from /refresh-role-panel)
+            const configurableRoleIds = await db.collection('guild_configs').findOne({ guildId }).then(config => config?.configurableRoleIds || []);
+            rolesToDisplay = await fetchRolesInfo(guildId, configurableRoleIds);
         }
 
-        if (!roles || roles.length === 0) {
+
+        if (!rolesToDisplay || rolesToDisplay.length === 0) {
             console.warn(`Guild ${guildId} için yapılandırılmış atanabilir roller bulunamadı. Rol paneli boş gönderilecek/güncellenecek.`);
         }
 
-        const options = roles.map(role => {
+        // Fetch custom emoji mappings from guild_configs
+        const roleCustomEmojis = guildConfig?.roleEmojiMappings || {};
+
+        const options = rolesToDisplay.map(role => {
             const option = {
                 label: role.name,
                 value: role.id,
                 default: memberRoles.includes(role.id), // Set default based on member's current roles
             };
-            // Removed emoji handling for role.icon as it causes Invalid Emoji error in select menus.
-            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
+
+            // Add emoji if a custom emoji is defined for this role in the database
+            const customEmoji = roleCustomEmojis[role.id];
+            if (customEmoji) {
+                option.emoji = {
+                    id: customEmoji.id || null, // Use emoji ID if available, otherwise null for Unicode
+                    name: customEmoji.name,
+                    animated: customEmoji.animated || false // Default to false if not specified
+                };
+            }
             return option;
         });
 
@@ -124,7 +132,7 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
 
     // Handle the initial button click to open the ephemeral role selection menu
     if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) {
-        const roles = await fetchRolesInfo(guildId);
+        const roles = await fetchRolesInfo(guildId); // This will still fetch all configurable roles as per DB
 
         if (!roles || roles.length === 0) {
             return res.send({
@@ -136,14 +144,25 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             });
         }
 
+        // Fetch custom emoji mappings from guild_configs for the ephemeral menu too
+        const guildConfig = await db.collection('guild_configs').findOne({ guildId });
+        const roleCustomEmojis = guildConfig?.roleEmojiMappings || {};
+
         const options = roles.map(role => {
             const option = {
                 label: role.name,
                 value: role.id,
                 default: memberRoles.includes(role.id), // Set default based on member's current roles
             };
-            // Removed emoji handling for role.icon as it causes Invalid Emoji error in select menus.
-            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
+            // Add emoji if a custom emoji is defined for this role in the database
+            const customEmoji = roleCustomEmojis[role.id];
+            if (customEmoji) {
+                option.emoji = {
+                    id: customEmoji.id || null, // Use emoji ID if available, otherwise null for Unicode
+                    name: customEmoji.name,
+                    animated: customEmoji.animated || false // Default to false if not specified
+                };
+            }
             return option;
         });
 
@@ -188,15 +207,19 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
         });
 
         const selectedRoleIds = interaction.data.values || [];
-        const roles = await fetchRolesInfo(guildId);
-        const allConfigurableIds = roles.map(role => role.id);
+        const roles = await fetchRolesInfo(guildId); // This fetches roles based on configurableRoleIds
+
+        const allConfigurableIds = roles.map(role => role.id); // This will be the roles currently in the panel
 
         try {
+            // Iterate through all roles that are currently in the panel (configurable roles)
             for (const roleId of allConfigurableIds) {
                 try {
                     if (selectedRoleIds.includes(roleId)) {
+                        // If the role was selected by the user AND it's a configurable role, add it
                         await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
                     } else {
+                        // If the role was NOT selected by the user AND it's a configurable role, remove it
                         await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
                     }
                 } catch (err) {

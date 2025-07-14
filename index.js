@@ -58,12 +58,21 @@ const getGuildConfigurableRoles = async (guildId) => {
     }
 };
 
-const fetchRolesInfo = async (guildId) => {
-    const configurableRoleIds = await getGuildConfigurableRoles(guildId);
-    if (configurableRoleIds.length === 0) return [];
+/**
+ * Fetches roles information for a given guild.
+ * If specificRoleIds are provided, it filters the guild roles by them.
+ * @param {string} guildId - The ID of the guild.
+ * @param {string[]|null} filterRoleIds - Optional array of role IDs to filter by. If null, fetches all guild roles.
+ * @returns {Promise<object[]>} An array of role objects.
+ */
+const fetchRolesInfo = async (guildId, filterRoleIds = null) => {
     try {
         const guildRoles = await rest.get(Routes.guildRoles(guildId));
-        return guildRoles.filter(role => configurableRoleIds.includes(role.id));
+        if (filterRoleIds && filterRoleIds.length > 0) {
+            const filteredSet = new Set(filterRoleIds);
+            return guildRoles.filter(role => filteredSet.has(role.id));
+        }
+        return guildRoles; // Return all roles if no filter is specified
     } catch (error) {
         console.error('Rol bilgisi alınamadı:', error);
         return [];
@@ -215,7 +224,7 @@ app.post('/interactions', async (req, res) => {
     }
 
     try {
-        const { type, data, guild_id, channel_id, member } = interaction; // Added member for user roles
+        const { type, data, guild_id, channel_id, member } = interaction;
 
         if (type === 1) {
             return res.send({ type: 1 }); // PONG response for Discord's health check
@@ -244,25 +253,28 @@ app.post('/interactions', async (req, res) => {
                     { upsert: true }
                 );
 
-                const roles = await fetchRolesInfo(guild_id);
-                // Pass member.roles to populate default selected options
-                const optionsForSelect = roles.map(role => {
+                // Fetch ALL roles from the guild to allow admin to select any role
+                // fetchRolesInfo'ya null parametresi ile tüm rolleri getir
+                const allGuildRoles = await fetchRolesInfo(guild_id, null);
+                
+                const optionsForSelect = allGuildRoles.map(role => {
                     const option = {
                         label: role.name,
                         value: role.id,
                         default: member.roles.includes(role.id), // Set default based on user's current roles
                     };
-                    // Removed emoji handling for role icons here to avoid Invalid Emoji error
+                    // No emoji here, as this is for the admin to select roles for the panel.
+                    // Emojis will be added to the final panel based on DB config.
                     return option;
                 });
 
-                const displayOptionsForSelect = optionsForSelect.length > 0 ? optionsForSelect : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." }];
+                const displayOptionsForSelect = optionsForSelect.length > 0 ? optionsForSelect : [{ label: "Rol bulunamadı", value: "no_roles", default: true, description: "Lütfen Discord sunucunuzda atanabilir roller olduğundan emin olun." }];
                 const maxValuesForSelect = Math.max(1, displayOptionsForSelect.length);
 
                 return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
-                        content: 'Panele eklemek istediğiniz rolleri seçin:',
+                        content: 'Panele eklemek istediğiniz rolleri seçin (bu mesaj sadece size gözükecektir):',
                         components: [
                             {
                                 type: MessageComponentTypes.ACTION_ROW,
@@ -283,7 +295,9 @@ app.post('/interactions', async (req, res) => {
                 });
             } else if (name === 'refresh-role-panel') {
                 // For refresh, we need the member's roles to correctly set default selected options
-                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false, null, member.roles);
+                // The specificRoleIds will come from guild_configs.configurableRoleIds
+                const configurableRoleIds = await getGuildConfigurableRoles(guild_id);
+                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false, configurableRoleIds, member.roles);
                 return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
@@ -343,6 +357,13 @@ app.post('/interactions', async (req, res) => {
                     );
                     return;
                 }
+
+                // Save the selected roles as configurable roles for the guild
+                await db.collection('guild_configs').updateOne(
+                    { guildId: guild_id },
+                    { $set: { configurableRoleIds: selectedRoleIds } },
+                    { upsert: true }
+                );
 
                 // Call updateRoleSelectionMessage with the selected roles and member's current roles
                 await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds, member.roles);
