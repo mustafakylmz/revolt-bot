@@ -25,8 +25,9 @@ const ComponentType = {
  * @param {function} fetchRolesInfo - Function to fetch configurable roles for a guild.
  * @param {boolean} isInitialSend - True if this is the initial command to send the message, false for refresh.
  * @param {string[]|null} specificRoleIds - Optional array of specific role IDs to include in the panel.
+ * @param {string[]|null} memberRoles - Optional array of role IDs the interacting member currently has.
  */
-export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend, specificRoleIds = null) {
+export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend, specificRoleIds = null, memberRoles = []) {
     try {
         let guildConfig = await db.collection('guild_configs').findOne({ guildId });
         let messageId = guildConfig?.rolePanelMessageId;
@@ -60,16 +61,10 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             const option = {
                 label: role.name,
                 value: role.id,
-                default: false,
+                default: memberRoles.includes(role.id), // Set default based on member's current roles
             };
-            // Add emoji if role.icon exists and is a valid format for Discord custom emojis
-            if (role.icon) {
-                option.emoji = {
-                    id: role.id, // Use role ID as emoji ID if it's a custom role icon
-                    name: role.name.replace(/[^a-zA-Z0-9_]/g, ''), // Sanitize name for emoji name field
-                    animated: role.icon.startsWith('a_') // Check if it's an animated icon
-                };
-            }
+            // Removed emoji handling for role.icon as it causes Invalid Emoji error in select menus.
+            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
             return option;
         });
 
@@ -122,7 +117,7 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
 }
 
 
-export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
+export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo, memberRoles = []) {
     const { custom_id, type } = interaction.data;
     const guildId = interaction.guild_id;
     const memberId = interaction.member.user.id;
@@ -145,16 +140,10 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             const option = {
                 label: role.name,
                 value: role.id,
-                default: false,
+                default: memberRoles.includes(role.id), // Set default based on member's current roles
             };
-            // Add emoji if role.icon exists and is a valid format for Discord custom emojis
-            if (role.icon) {
-                option.emoji = {
-                    id: role.id, // Use role ID as emoji ID if it's a custom role icon
-                    name: role.name.replace(/[^a-zA-Z0-9_]/g, ''), // Sanitize name for emoji name field
-                    animated: role.icon.startsWith('a_') // Check if it's an animated icon
-                };
-            }
+            // Removed emoji handling for role.icon as it causes Invalid Emoji error in select menus.
+            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
             return option;
         });
 

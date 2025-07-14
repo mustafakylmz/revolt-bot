@@ -215,7 +215,7 @@ app.post('/interactions', async (req, res) => {
     }
 
     try {
-        const { type, data, guild_id, channel_id, member } = interaction; // Added member for user ID
+        const { type, data, guild_id, channel_id, member } = interaction; // Added member for user roles
 
         if (type === 1) {
             return res.send({ type: 1 }); // PONG response for Discord's health check
@@ -238,10 +238,6 @@ app.post('/interactions', async (req, res) => {
                 const targetChannelId = options?.find(opt => opt.name === 'channel')?.value || channel_id;
                 
                 // Store the target channel ID temporarily for the follow-up interaction
-                // This is a simple in-memory store. For persistent or multi-user scenarios,
-                // you might store this in the database associated with the user/guild.
-                // For now, let's assume a single user might use this at a time or
-                // that the bot restarts are infrequent.
                 await db.collection('temp_interaction_data').updateOne(
                     { userId: member.user.id, guildId: guild_id },
                     { $set: { targetChannelId: targetChannelId, timestamp: new Date() } },
@@ -249,19 +245,14 @@ app.post('/interactions', async (req, res) => {
                 );
 
                 const roles = await fetchRolesInfo(guild_id);
+                // Pass member.roles to populate default selected options
                 const optionsForSelect = roles.map(role => {
                     const option = {
                         label: role.name,
                         value: role.id,
-                        default: false,
+                        default: member.roles.includes(role.id), // Set default based on user's current roles
                     };
-                    if (role.icon) {
-                        option.emoji = {
-                            id: role.id,
-                            name: role.name.replace(/[^a-zA-Z0-9_]/g, ''),
-                            animated: role.icon.startsWith('a_')
-                        };
-                    }
+                    // Removed emoji handling for role icons here to avoid Invalid Emoji error
                     return option;
                 });
 
@@ -291,7 +282,8 @@ app.post('/interactions', async (req, res) => {
                     }
                 });
             } else if (name === 'refresh-role-panel') {
-                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false);
+                // For refresh, we need the member's roles to correctly set default selected options
+                await updateRoleSelectionMessage(guild_id, null, db, rest, applicationId, fetchRolesInfo, false, null, member.roles);
                 return res.send({
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
@@ -352,8 +344,8 @@ app.post('/interactions', async (req, res) => {
                     return;
                 }
 
-                // Call updateRoleSelectionMessage with the selected roles
-                await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds);
+                // Call updateRoleSelectionMessage with the selected roles and member's current roles
+                await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds, member.roles);
 
                 await rest.patch(
                     Routes.webhookMessage(applicationId, interaction.token),
@@ -370,7 +362,8 @@ app.post('/interactions', async (req, res) => {
             }
 
             if (['select_roles_button', 'multi_role_select'].includes(custom_id)) {
-                await handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo);
+                // Pass member.roles to handleRoleInteraction for ephemeral select menu
+                await handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo, member.roles);
                 return;
             }
 
