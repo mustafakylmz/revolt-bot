@@ -1,141 +1,91 @@
-import pkg from 'discord-interactions';
-const {
-    InteractionResponseType,
-    InteractionResponseFlags,
-    MessageComponentTypes
-} = pkg;
-
+// roleInteractions.js
+import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes } from 'discord-interactions';
 import { Routes } from 'discord-api-types/v10';
 
-// MongoDB'den doc ve getDoc yerine, doğrudan db objesini kullanacağız.
-// Bu dosya kendi başına veritabanı bağlantısı kurmaz, index.js'ten alır.
-
-/**
- * Rol seçimi ve atama etkileşimlerini işler.
- * @param {object} interaction - Discord etkileşim objesi.
- * @param {object} res - Express yanıt objesi.
- * @param {object} rest - Discord REST client.
- * @param {string} applicationId - Botun uygulama ID'si.
- * @param {object} db - MongoDB veritabanı objesi.
- * @param {function} fetchRolesInfo - Rol bilgilerini Discord API'den çeken yardımcı fonksiyon.
- */
 export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
     const { custom_id } = interaction.data;
-    const memberId = interaction.member.user.id;
     const guildId = interaction.guild_id;
+    const memberId = interaction.member.user.id;
 
-    // Defer yanıtı sadece orijinal mesajı güncelleyeceğimiz durumlarda gönderilir.
-    // Rol etkileşimleri için genellikle defer yanıtı göndeririz.
-    await res.send({
-        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
-        flags: InteractionResponseFlags.EPHEMERAL
-    });
-
-    switch (custom_id) {
-        case 'select_roles_button': // "Rolleri Seç" butonuna basıldığında tetiklenir
-            console.log("roleInteractions: select_roles_button tıklandı."); // DEBUG LOG
-            // fetchRolesInfo artık guildId'yi parametre olarak alıyor ve MongoDB'den rolleri çekiyor
-            const rolesInfo = await fetchRolesInfo(guildId); 
-
-            const options = rolesInfo.map(role => {
-                return {
-                    label: role.name,
-                    value: role.id,
-                    emoji: undefined, // Rol ikonları için emoji desteğini şimdilik devre dışı bıraktık
-                };
+    if (custom_id === 'select_roles_button') {
+        const roles = await fetchRolesInfo(guildId);
+        if (roles.length === 0) {
+            return res.send({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: 'Atanabilir rol bulunamadı.',
+                    flags: InteractionResponseFlags.EPHEMERAL
+                }
             });
+        }
 
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: 'Almak istediğin rolleri seç, istediğin kadar seçebilirsin.',
-                        flags: InteractionResponseFlags.EPHEMERAL,
+        const options = roles.map(role => ({
+            label: role.name,
+            value: role.id
+        }));
+
+        return res.send({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: 'Aşağıdan almak istediğiniz rolleri seçin:',
+                flags: InteractionResponseFlags.EPHEMERAL,
+                components: [
+                    {
+                        type: MessageComponentTypes.ACTION_ROW,
                         components: [
                             {
-                                type: MessageComponentTypes.ACTION_ROW,
-                                components: [
-                                    {
-                                        type: MessageComponentTypes.STRING_SELECT,
-                                        custom_id: 'multi_role_select',
-                                        placeholder: 'Rolleri seç...',
-                                        min_values: 1,
-                                        max_values: options.length > 0 ? options.length : 1,
-                                        options: options.length > 0 ? options : [{ label: 'Rol bulunamadı', value: 'no_roles', description: 'Sunucuda seçilebilir rol bulunmuyor.' }],
-                                    }
-                                ]
+                                type: 3, // SELECT_MENU
+                                custom_id: 'multi_role_select',
+                                options,
+                                min_values: 0,
+                                max_values: options.length
                             }
-                        ],
+                        ]
                     }
-                }
-            );
-            console.log("roleInteractions: Rol seçim menüsü gönderildi."); // DEBUG LOG
-            break;
+                ]
+            }
+        });
+    } else if (custom_id === 'multi_role_select') {
+        const selectedRoleIds = interaction.data.values;
+        try {
+            const allRoleIds = (await fetchRolesInfo(guildId)).map(role => role.id);
 
-        case 'multi_role_select': // Rol seçim menüsünden seçim yapıldığında tetiklenir
-            console.log("roleInteractions: multi_role_select menüsünden seçim yapıldı."); // DEBUG LOG
-            const selectedRoleIds = interaction.data.values;
-            let rolesGivenCount = 0;
-            let failedRoles = [];
-
-            if (selectedRoleIds.includes('no_roles')) {
-                await rest.patch(
-                    Routes.webhookMessage(applicationId, interaction.token),
-                    {
-                        body: {
-                            content: 'Seçilebilecek bir rol bulunamadı.',
-                            flags: InteractionResponseFlags.EPHEMERAL,
-                        }
-                    }
-                );
-                break;
+            // Önce eski rolleri temizle
+            for (const roleId of allRoleIds) {
+                try {
+                    await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
+                } catch {}
             }
 
+            // Seçilen rolleri ata
             for (const roleId of selectedRoleIds) {
                 try {
-                    console.log(`roleInteractions: Kullanıcıya rol atanıyor: ${roleId}`); // DEBUG LOG
                     await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
-                    rolesGivenCount++;
-                } catch (e) {
-                    console.error(`roleInteractions: Rol verme hatası (${roleId}):`, e);
-                    failedRoles.push(roleId);
-                }
+                } catch {}
             }
 
-            let responseContent = '';
-            if (rolesGivenCount > 0) {
-                responseContent += `${rolesGivenCount} rol başarıyla verildi! `;
-            }
-            if (failedRoles.length > 0) {
-                responseContent += `Bazı roller verilemedi: ${failedRoles.join(', ')}. Botun sunucuda bu rolleri yönetme izni olduğundan emin olun.`;
-            }
-            if (rolesGivenCount === 0 && failedRoles.length === 0) {
-                responseContent = 'Herhangi bir rol seçilmedi veya verilemedi. Botun yeterli izni olduğundan emin olun.';
-            }
-
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: responseContent,
-                        flags: InteractionResponseFlags.EPHEMERAL,
-                    }
+            return await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
+                body: {
+                    content: 'Roller başarıyla güncellendi.',
+                    flags: InteractionResponseFlags.EPHEMERAL
                 }
-            );
-            console.log("roleInteractions: Rol seçim yanıtı gönderildi."); // DEBUG LOG
-            break;
-
-        default:
-            console.warn(`roleInteractions: Bilinmeyen custom_id: ${custom_id}`); // DEBUG LOG
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: 'Bilinmeyen bir rol bileşeni etkileşimi.',
-                        flags: InteractionResponseFlags.EPHEMERAL,
-                    }
+            });
+        } catch (e) {
+            console.error('Rol güncelleme hatası:', e);
+            return await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
+                body: {
+                    content: 'Roller güncellenirken bir hata oluştu.',
+                    flags: InteractionResponseFlags.EPHEMERAL
                 }
-            );
-            break;
+            });
+        }
     }
+
+    return res.send({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+            content: 'Bilinmeyen rol etkileşimi.',
+            flags: InteractionResponseFlags.EPHEMERAL
+        }
+    });
 }
