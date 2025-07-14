@@ -23,8 +23,9 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
     const guildId = interaction.guild_id;
 
     // Etkileşim tipine göre defer yanıtını ayarla
-    // Düzeltme: Tüm MESSAGE_COMPONENT etkileşimleri için defer yanıtı gönderilecek.
-    if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
+    // Düzeltme: faceit_role_request_button için defer yanıtı GÖNDERİLMEYECEK, doğrudan modal gönderilecek.
+    // Diğer MESSAGE_COMPONENT etkileşimleri için defer korunacak.
+    if (interaction.type === InteractionType.MESSAGE_COMPONENT && custom_id !== 'faceit_role_request_button') {
         console.log(`faceitInteractions: DEFERRED_UPDATE_MESSAGE gönderiliyor for custom_id: ${custom_id}`); // DEBUG LOG
         await res.send({
             type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
@@ -42,42 +43,37 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
 
     switch (custom_id) {
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
-            console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal takip yanıtı olarak gönderiliyor..."); // DEBUG LOG
+            console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Doğrudan modal yanıtı gönderiliyor..."); // DEBUG LOG
             try {
-                // Düzeltme: Modalı göndermek için Routes.interactionCallback ve POST metodu kullanıldı.
-                await rest.post(
-                    Routes.interactionCallback(interaction.id, interaction.token),
-                    {
-                        body: {
-                            type: InteractionResponseType.MODAL, // Modal yanıt türü
-                            data: {
-                                custom_id: 'modal_faceit_nickname_submit',
-                                title: 'Faceit Nickname Gir',
+                // Düzeltme: Modalı doğrudan başlangıç yanıtı olarak gönderildi.
+                return res.send({
+                    type: InteractionResponseType.MODAL, // Modal yanıt türü
+                    data: {
+                        custom_id: 'modal_faceit_nickname_submit',
+                        title: 'Faceit Nickname Gir',
+                        components: [
+                            {
+                                type: MessageComponentTypes.ACTION_ROW,
                                 components: [
                                     {
-                                        type: MessageComponentTypes.ACTION_ROW,
-                                        components: [
-                                            {
-                                                type: MessageComponentTypes.TEXT_INPUT,
-                                                custom_id: 'faceit_nickname_input',
-                                                style: 1, // TextInputStyles.SHORT için doğrudan 1 kullanıldı
-                                                label: 'Faceit Kullanıcı Adınız:',
-                                                placeholder: 'örnek: shroud',
-                                                required: true,
-                                                min_length: 3,
-                                                max_length: 30,
-                                            },
-                                        ],
+                                        type: MessageComponentTypes.TEXT_INPUT,
+                                        custom_id: 'faceit_nickname_input',
+                                        style: 1, // TextInputStyles.SHORT için doğrudan 1 kullanıldı
+                                        label: 'Faceit Kullanıcı Adınız:',
+                                        placeholder: 'örnek: shroud',
+                                        required: true,
+                                        min_length: 3,
+                                        max_length: 30,
                                     },
                                 ],
                             },
-                        }
-                    }
-                );
-                console.log("faceitInteractions: Modal takip yanıtı başarıyla gönderildi.");
+                        ],
+                    },
+                });
             } catch (sendError) {
-                console.error("faceitInteractions: Modal takip yanıtı gönderme sırasında kritik hata:", sendError);
+                console.error("faceitInteractions: Modal doğrudan yanıtı gönderme sırasında kritik hata:", sendError);
                 // Kullanıcıya hata mesajı gönder
+                // Not: Eğer res.send başarısız olursa, bu webhook mesajı da başarısız olabilir.
                 try {
                     await rest.patch(
                         Routes.webhookMessage(applicationId, interaction.token),
@@ -91,9 +87,8 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                 } catch (patchError) {
                     console.error("faceitInteractions: Modal hatası sonrası webhook mesajı gönderme hatası:", patchError);
                 }
+                return;
             }
-            // Bu case'den sonra Express yanıtını sonlandırmaya gerek yok, çünkü defer yanıtı zaten gönderildi.
-            break;
 
         case 'modal_faceit_nickname_submit': // Faceit nickname modalı gönderildiğinde tetiklenir
             const nicknameInput = interaction.data.components[0].components[0].value;
