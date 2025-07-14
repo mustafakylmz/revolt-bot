@@ -33,9 +33,6 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
 
         if (!targetChannelId) {
             console.error(`Guild ${guildId} için rol paneli kanalı tanımlı değil.`);
-            // If it's an initial send command and no channel is provided, it means
-            // the command itself didn't specify a channel, and no default is stored.
-            // In a real scenario, the slash command would require a channel option.
             return;
         }
 
@@ -49,7 +46,9 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             label: role.name,
             value: role.id,
             default: false,
-            emoji: role.icon ? { id: null, name: role.icon } : undefined
+            // Removed emoji: role.icon ? { id: null, name: role.icon } : undefined
+            // role.icon is a hash for role icons, not a valid emoji for select menu options.
+            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
         }));
 
         // Determine the options to display in the select menu
@@ -124,7 +123,9 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
             label: role.name,
             value: role.id,
             default: false,
-            emoji: role.icon ? { id: null, name: role.icon } : undefined
+            // Removed emoji: role.icon ? { id: null, name: role.icon } : undefined
+            // role.icon is a hash for role icons, not a valid emoji for select menu options.
+            // If you want emojis, they need to be actual Unicode emojis or custom guild emojis.
         }));
 
         // Determine the options to display in the select menu
