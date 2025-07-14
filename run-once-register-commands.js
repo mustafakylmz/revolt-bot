@@ -1,24 +1,45 @@
-import fetch from 'node-fetch';
+// run-once-register-commands.js
 import dotenv from 'dotenv';
+import { REST } from '@discordjs/rest';
+import { Routes, ApplicationCommandOptionType } from 'discord-api-types/v10';
+
 dotenv.config();
 
 const commands = [
-  {
-    name: "ping",
-    description: "Botun çalışıp çalışmadığını kontrol eder."
-  }
+    {
+        name: 'send-role-panel',
+        description: 'Belirtilen kanala rol seçim paneli gönderir veya günceller.',
+        options: [
+            {
+                name: 'channel',
+                description: 'Panelin gönderileceği kanal.',
+                type: ApplicationCommandOptionType.Channel,
+                required: false, // Make it optional, default to current channel
+            },
+        ],
+    },
+    {
+        name: 'refresh-role-panel',
+        description: 'Mevcut rol seçim panelini günceller.',
+    },
+    // Add other commands here if you have any, e.g., for Faceit button
+    {
+        name: 'faceit-role-button',
+        description: 'Faceit rol talep butonunu gönderir.',
+    }
 ];
 
-const url = `https://discord.com/api/v10/applications/${process.env.DISCORD_CLIENT_ID}/commands`;
+const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 
-fetch(url, {
-  method: 'PUT', // PUT, mevcut tüm komutları bu listeyle değiştirir
-  headers: {
-    "Authorization": `Bot ${process.env.BOT_TOKEN}`,
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify(commands)
-})
-.then(res => res.json())
-.then(console.log)
-.catch(console.error);
+(async () => {
+    try {
+        console.log('Uygulama (/) komutları yenilenmeye başlanıyor.');
+        await rest.put(
+            Routes.applicationCommands(process.env.DISCORD_CLIENT_ID),
+            { body: commands },
+        );
+        console.log('Uygulama (/) komutları başarıyla yeniden yüklendi.');
+    } catch (error) {
+        console.error('Uygulama (/) komutları yüklenirken hata:', error);
+    }
+})();
