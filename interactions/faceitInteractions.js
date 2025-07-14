@@ -16,7 +16,7 @@ import { Routes } from 'discord-api-types/v10';
  * @param {object} rest - Discord REST client.
  * @param {string} applicationId - Botun uygulama ID'si.
  * @param {object} env - Ortam değişkenlerini içeren obje (process.env).
- * @param {object} db - MongoDB veritabanı objesi (şu an doğrudan kullanılmıyor ama parametre olarak iletiliyor).
+ * @param {object} db - MongoDB veritabanı objesi.
  */
 export async function handleFaceitInteraction(interaction, res, rest, applicationId, env, db) {
     const { custom_id } = interaction.data;
@@ -100,6 +100,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
 
             let responseMessage = '';
             let faceitLevel = null;
+            let roleToAssignId = null; // Tanımlanmış rol ID'sini burada tutacağız
 
             try {
                 const FACEIT_API_KEY = env.FACEIT_API_KEY;
@@ -134,22 +135,29 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                 responseMessage = 'Faceit API ile bağlantı kurarken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.';
             }
 
-            if (faceitLevel !== null) {
-                let roleToAssignId = null;
-
-                switch (faceitLevel) {
-                    case 1: roleToAssignId = env.LEVEL_1_ROLE_ID; break;
-                    case 2: roleToAssignId = env.LEVEL_2_ROLE_ID; break;
-                    case 3: roleToAssignId = env.LEVEL_3_ROLE_ID; break;
-                    case 4: roleToAssignId = env.LEVEL_4_ROLE_ID; break;
-                    case 5: roleToAssignId = env.LEVEL_5_ROLE_ID; break;
-                    case 6: roleToAssignId = env.LEVEL_6_ROLE_ID; break;
-                    case 7: roleToAssignId = env.LEVEL_7_ROLE_ID; break;
-                    case 8: roleToAssignId = env.LEVEL_8_ROLE_ID; break;
-                    case 9: roleToAssignId = env.LEVEL_9_ROLE_ID; break;
-                    case 10: roleToAssignId = env.LEVEL_10_ROLE_ID; break;
-                    default: break;
+            // === MongoDB'den Faceit Seviye Rollerini Çekme ===
+            let faceitLevelRolesMap = {};
+            if (db) {
+                try {
+                    const collection = db.collection('guild_configs');
+                    const guildConfig = await collection.findOne({ guildId: guildId });
+                    if (guildConfig && guildConfig.faceitLevelRoles) {
+                        faceitLevelRolesMap = guildConfig.faceitLevelRoles;
+                        console.log(`faceitInteractions: MongoDB'den Faceit seviye rolleri çekildi:`, faceitLevelRolesMap);
+                    } else {
+                        console.warn(`faceitInteractions: ${guildId} için Faceit seviye rolleri MongoDB'de bulunamadı.`);
+                    }
+                } catch (mongoError) {
+                    console.error("faceitInteractions: MongoDB'den Faceit seviye rolleri çekerken hata:", mongoError);
                 }
+            } else {
+                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit seviye rolleri çekilemedi.");
+            }
+            // === MongoDB'den Çekme Sonu ===
+
+            if (faceitLevel !== null) {
+                // Artık env yerine faceitLevelRolesMap kullanıyoruz
+                roleToAssignId = faceitLevelRolesMap[String(faceitLevel)]; // JSON anahtarları string olabilir
 
                 if (roleToAssignId) {
                     try {
@@ -161,9 +169,37 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
                     }
                 } else {
-                    responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı.`;
+                    responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı. Lütfen sunucu yöneticisinin \`/set-faceit-level-roles\` komutunu kullanarak bu seviye için bir rol tanımladığından emin olun.`;
                 }
             }
+
+            // === MongoDB'ye Faceit Kullanıcı Verilerini Kaydetme/Güncelleme ===
+            if (db) {
+                try {
+                    const faceitUsersCollection = db.collection('faceit_users');
+                    const faceitUserData = {
+                        discordId: memberId,
+                        guildId: guildId, // Hangi sunucuda olduğunu da kaydedebiliriz
+                        faceitNickname: nicknameInput,
+                        faceitLevel: faceitLevel,
+                        assignedRoleId: roleToAssignId,
+                        lastUpdated: new Date()
+                    };
+
+                    await faceitUsersCollection.updateOne(
+                        { discordId: memberId, guildId: guildId }, // discordId ve guildId'ye göre benzersiz belge
+                        { $set: faceitUserData },
+                        { upsert: true } // Belge yoksa oluştur, varsa güncelle
+                    );
+                    console.log(`faceitInteractions: Faceit kullanıcı verisi MongoDB'ye kaydedildi/güncellendi: ${memberId}`);
+                } catch (mongoError) {
+                    console.error("faceitInteractions: MongoDB'ye Faceit verisi kaydederken hata:", mongoError);
+                    // Kullanıcıya bu hatayı göstermeyebiliriz, sadece loglayabiliriz.
+                }
+            } else {
+                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit verisi kaydedilemedi.");
+            }
+            // === MongoDB Kayıt Sonu ===
 
             console.log(`faceitInteractions: Faceit rolü işlemi tamamlandı. Yanıt gönderiliyor: ${responseMessage}`); // DEBUG LOG
             await rest.patch(
