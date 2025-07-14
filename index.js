@@ -16,8 +16,7 @@ import { Routes } from 'discord-api-types/v10';
 // MongoDB imports
 import { MongoClient, ServerApiVersion } from 'mongodb';
 
-// Yeni etkileşim işleyici modüllerini import et
-// Bu dosyalara da MongoDB client'ı ileteceğiz.
+// Etkileşim işleyici modüllerini import et
 import { handleRoleInteraction } from './interactions/roleInteractions.js';
 import { handleFaceitInteraction } from './interactions/faceitInteractions.js';
 
@@ -130,6 +129,41 @@ async function saveGuildConfigurableRoles(guildId, roleIdsArray) {
 }
 
 /**
+ * Belirli bir sunucu için Faceit seviye-rol haritasını MongoDB'den okur.
+ * @param {string} guildId - Sunucu ID'si.
+ * @returns {Promise<object>} Faceit seviye-rol haritası.
+ */
+async function getGuildFaceitLevelRoles(guildId) {
+    if (!db) {
+        console.warn("MongoDB: Veritabanı bağlantısı hazır değil, Faceit seviye rolleri çekilemiyor.");
+        return {};
+    }
+    const collection = db.collection('guild_configs');
+    const doc = await collection.findOne({ guildId: guildId });
+    return doc ? (doc.faceitLevelRoles || {}) : {};
+}
+
+/**
+ * Belirli bir sunucu için Faceit seviye-rol haritasını MongoDB'ye kaydeder.
+ * @param {string} guildId - Sunucu ID'si.
+ * @param {object} levelRolesMap - Faceit seviye-rol haritası.
+ */
+async function saveGuildFaceitLevelRoles(guildId, levelRolesMap) {
+    if (!db) {
+        console.warn("MongoDB: Veritabanı bağlantısı hazır değil, Faceit seviye rolleri kaydedilemiyor.");
+        return;
+    }
+    const collection = db.collection('guild_configs');
+    await collection.updateOne(
+        { guildId: guildId },
+        { $set: { faceitLevelRoles: levelRolesMap } },
+        { upsert: true }
+    );
+    console.log(`MongoDB: Faceit seviye rolleri ${guildId} için kaydedildi.`);
+}
+
+
+/**
  * Sunucudaki belirli rol ID'lerinin detaylı bilgilerini çeker.
  * Bu fonksiyon artık MongoDB'den gelen roleIds'i kullanacak.
  */
@@ -232,6 +266,18 @@ async function registerGlobalCommands() {
                     required: true,
                 }
             ]
+        },
+        {
+            name: 'set-faceit-level-roles',
+            description: 'Faceit seviyelerine göre atanacak rolleri ayarlar.',
+            options: [
+                {
+                    name: 'level_roles_map',
+                    description: 'Faceit seviye ID\'lerini rol ID\'lerine eşleyen JSON stringi (örn: {"1":"rol_id_1", "2":"rol_id_2"}).',
+                    type: ApplicationCommandOptionType.STRING,
+                    required: true,
+                }
+            ]
         }
     ];
 
@@ -249,7 +295,7 @@ async function registerGlobalCommands() {
 
 
 // Discord etkileşimlerini işleyen ana endpoint
-app.post('/interactions', async (req, res) => {
+app.post('/interactions', async (req, res) => { // verifyKeyMiddleware artık app.post'ta doğrudan kullanılıyor.
     const interaction = req.body;
 
     // Discord PING etkileşimini yanıtla
@@ -274,7 +320,7 @@ app.post('/interactions', async (req, res) => {
         // Slash Komutlarını İşle
         if (interaction.type === InteractionType.APPLICATION_COMMAND) {
             const { name, options } = interaction.data;
-            const guildId = interaction.guild_id;
+            const guildId = interaction.guild_id; // Slash komutları için guildId her zaman mevcut
 
             console.log(`Uygulama komutu alındı: ${name} (Guild: ${guildId})`); // DEBUG LOG
 
@@ -355,6 +401,36 @@ app.post('/interactions', async (req, res) => {
                         }
                     });
 
+                case 'set-faceit-level-roles':
+                    const levelRolesMapString = options.find(opt => opt.name === 'level_roles_map').value;
+                    try {
+                        const levelRolesMap = JSON.parse(levelRolesMapString);
+                        // JSON'un beklenen formatta olup olmadığını kontrol edebilirsiniz (örn: her anahtarın sayısal bir seviye, değerin bir rol ID'si olması)
+                        // Basit bir kontrol: Her anahtarın bir sayıya dönüştürülebilir ve değerin bir string olması
+                        for (const key in levelRolesMap) {
+                            if (isNaN(Number(key)) || typeof levelRolesMap[key] !== 'string') {
+                                throw new Error("level_roles_map JSON formatı hatalı. Anahtarlar sayısal seviyeler, değerler ise rol ID'leri olmalıdır.");
+                            }
+                        }
+                        await saveGuildFaceitLevelRoles(guildId, levelRolesMap);
+                        return res.send({
+                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                            data: {
+                                content: 'Faceit seviye rolleri başarıyla kaydedildi!',
+                                flags: InteractionResponseFlags.EPHEMERAL,
+                            }
+                        });
+                    } catch (parseError) {
+                        console.error(`Faceit seviye rol haritası ayrıştırma hatası:`, parseError);
+                        return res.send({
+                            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                            data: {
+                                content: `Hata: Faceit seviye rolleri haritası geçersiz bir JSON formatında veya hatalı içerikte. Lütfen doğru formatı kullanın: \`{"1":"rol_id_1", "2":"rol_id_2"}\`. Hata: ${parseError.message}`,
+                                flags: InteractionResponseFlags.EPHEMERAL,
+                            }
+                        });
+                    }
+
                 default:
                     return res.send({
                         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -372,12 +448,11 @@ app.post('/interactions', async (req, res) => {
 
             // Rol etkileşimlerini işle
             if (['select_roles_button', 'multi_role_select'].includes(custom_id)) {
-                // MongoDB db nesnesini handleRoleInteraction'a iletiyoruz
                 await handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo);
             }
             // Faceit etkileşimlerini işle
             else if (custom_id === 'faceit_role_request_button' || custom_id === 'modal_faceit_nickname_submit') {
-                // MongoDB db nesnesini handleFaceitInteraction'a iletiyoruz
+                // MongoDB db objesini handleFaceitInteraction'a iletiyoruz
                 await handleFaceitInteraction(interaction, res, rest, applicationId, process.env, db);
                 // Modal yanıtı gönderildiği için burada Express yanıtını sonlandır.
                 // handleFaceitInteraction zaten res.send ile yanıtı gönderiyor.
@@ -404,7 +479,7 @@ app.post('/interactions', async (req, res) => {
 
             // Faceit modal gönderimini işle
             if (custom_id === 'modal_faceit_nickname_submit') {
-                // MongoDB db nesnesini handleFaceitInteraction'a iletiyoruz
+                // MongoDB db objesini handleFaceitInteraction'a iletiyoruz
                 await handleFaceitInteraction(interaction, res, rest, applicationId, process.env, db);
             }
             // Bilinmeyen modal
