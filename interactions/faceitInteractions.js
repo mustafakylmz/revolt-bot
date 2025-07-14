@@ -6,7 +6,8 @@ const {
     TextInputStyles
 } = pkg;
 
-import { Routes } from '@discordjs/rest';
+// Düzeltme: Routes artık @discordjs/rest yerine discord-api-types/v10'dan import ediliyor.
+import { Routes } from 'discord-api-types/v10';
 
 /**
  * Faceit entegrasyonu etkileşimlerini işler.
