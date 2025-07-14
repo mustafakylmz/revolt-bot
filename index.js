@@ -41,6 +41,18 @@ async function connectToMongoDB() {
         process.exit(1);
     }
 }
+const fetchRolesInfo = async (guildId) => {
+    const configurableRoleIds = await getGuildConfigurableRoles(guildId);
+    if (configurableRoleIds.length === 0) return [];
+    try {
+        const guildRoles = await rest.get(Routes.guildRoles(guildId));
+        return guildRoles.filter(role => configurableRoleIds.includes(role.id));
+    } catch (error) {
+        console.error('Rol bilgisi alınamadı:', error);
+        return [];
+    }
+};
+
 
 app.post('/interactions', async (req, res) => {
     let rawBody;
