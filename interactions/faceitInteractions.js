@@ -1,53 +1,31 @@
-import pkg from 'discord-interactions';
-const {
-    InteractionResponseType,
-    InteractionResponseFlags,
-    MessageComponentTypes,
-    InteractionType
-} = pkg;
-
-import { Routes } from 'discord-api-types/v10';
-
-/**
- * Faceit entegrasyonu etkileşimlerini işler.
- * @param {object} interaction - Discord etkileşim objesi.
- * @param {object} res - Express yanıt objesi.
- * @param {object} rest - Discord REST client.
- * @param {string} applicationId - Botun uygulama ID'si.
- * @param {object} env - Ortam değişkenlerini içeren obje (process.env).
- * @param {object} db - MongoDB veritabanı objesi.
- */
 export async function handleFaceitInteraction(interaction, res, rest, applicationId, env, db) {
     const { custom_id } = interaction.data;
     const memberId = interaction.member.user.id;
     const guildId = interaction.guild_id;
 
-    // Etkileşim tipine göre defer yanıtını ayarla
-    // Düzeltme: faceit_role_request_button için defer yanıtı GÖNDERİLMEYECEK, doğrudan modal gönderilecek.
-    // Diğer MESSAGE_COMPONENT etkileşimleri için defer korunacak.
-    if (interaction.type === InteractionType.MESSAGE_COMPONENT && custom_id !== 'faceit_role_request_button') {
-        console.log(`faceitInteractions: DEFERRED_UPDATE_MESSAGE gönderiliyor for custom_id: ${custom_id}`); // DEBUG LOG
-        await res.send({
-            type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
-            flags: InteractionResponseFlags.EPHEMERAL
-        });
-    } else if (interaction.type === InteractionType.MODAL_SUBMIT) {
-        // Modal gönderimi için (MODAL_SUBMIT) defer yanıtı gereklidir, çünkü API çağrısı yapılacaktır.
-        console.log(`faceitInteractions: Modal gönderimi alındı. custom_id: ${custom_id}. Defer yanıtı gönderiliyor...`); // DEBUG LOG
-        await res.send({
-            type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
-            flags: InteractionResponseFlags.EPHEMERAL
-        });
-    }
+    try {
+        if (interaction.type === InteractionType.MESSAGE_COMPONENT && custom_id !== 'faceit_role_request_button') {
+            console.log(`faceitInteractions: DEFERRED_UPDATE_MESSAGE gönderiliyor for custom_id: ${custom_id}`);
+            await res.send({
+                type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+                flags: InteractionResponseFlags.EPHEMERAL
+            });
+            return;
+        }
 
+        if (interaction.type === InteractionType.MODAL_SUBMIT) {
+            console.log(`faceitInteractions: Modal gönderimi alındı. custom_id: ${custom_id}. Defer yanıtı gönderiliyor...`);
+            await res.send({
+                type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+                flags: InteractionResponseFlags.EPHEMERAL
+            });
+        }
 
-    switch (custom_id) {
-        case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
-            console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Doğrudan modal yanıtı gönderiliyor..."); // DEBUG LOG
-            try {
-                // Düzeltme: Modalı doğrudan başlangıç yanıtı olarak gönderildi.
-                return res.send({
-                    type: InteractionResponseType.MODAL, // Modal yanıt türü
+        switch (custom_id) {
+            case 'faceit_role_request_button':
+                console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Doğrudan modal yanıtı gönderiliyor...");
+                await res.send({
+                    type: InteractionResponseType.MODAL,
                     data: {
                         custom_id: 'modal_faceit_nickname_submit',
                         title: 'Faceit Nickname Gir',
@@ -58,7 +36,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                                     {
                                         type: MessageComponentTypes.TEXT_INPUT,
                                         custom_id: 'faceit_nickname_input',
-                                        style: 1, // TextInputStyles.SHORT için doğrudan 1 kullanıldı
+                                        style: 1,
                                         label: 'Faceit Kullanıcı Adınız:',
                                         placeholder: 'örnek: shroud',
                                         required: true,
@@ -70,156 +48,133 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         ],
                     },
                 });
-            } catch (sendError) {
-                console.error("faceitInteractions: Modal doğrudan yanıtı gönderme sırasında kritik hata:", sendError);
-                // Kullanıcıya hata mesajı gönder
-                // Not: Eğer res.send başarısız olursa, bu webhook mesajı da başarısız olabilir.
-                try {
-                    await rest.patch(
-                        Routes.webhookMessage(applicationId, interaction.token),
-                        {
-                            body: {
-                                content: 'Modal açılırken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.',
-                                flags: InteractionResponseFlags.EPHEMERAL,
-                            }
-                        }
-                    );
-                } catch (patchError) {
-                    console.error("faceitInteractions: Modal hatası sonrası webhook mesajı gönderme hatası:", patchError);
-                }
                 return;
-            }
 
-        case 'modal_faceit_nickname_submit': // Faceit nickname modalı gönderildiğinde tetiklenir
-            const nicknameInput = interaction.data.components[0].components[0].value;
-            console.log(`faceitInteractions: Faceit Nickname alındı: ${nicknameInput}. API çağrısı yapılıyor...`); // DEBUG LOG
+            case 'modal_faceit_nickname_submit':
+                const nicknameInput = interaction.data.components[0].components[0].value;
+                console.log(`faceitInteractions: Faceit Nickname alındı: ${nicknameInput}. API çağrısı yapılıyor...`);
 
-            let responseMessage = '';
-            let faceitLevel = null;
-            let roleToAssignId = null; // Tanımlanmış rol ID'sini burada tutacağız
+                let responseMessage = '';
+                let faceitLevel = null;
+                let roleToAssignId = null;
 
-            try {
-                const FACEIT_API_KEY = env.FACEIT_API_KEY;
-                if (!FACEIT_API_KEY) {
-                    throw new Error("FACEIT_API_KEY environment variable is not set.");
-                }
-
-                const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
-                const apiResponse = await fetch(faceitApiUrl, {
-                    headers: { 'Authorization': `Bearer ${FACEIT_API_KEY}` }
-                });
-                const playerData = await apiResponse.json();
-
-                if (!apiResponse.ok) {
-                    if (apiResponse.status === 404) {
-                        responseMessage = `Faceit nickname "**${nicknameInput}**" bulunamadı. Lütfen nickinizi doğru yazdığınızdan emin olun.`;
-                    } else {
-                        console.error('faceitInteractions: Faceit API hata kodu:', apiResponse.status, playerData);
-                        responseMessage = `Faceit API ile bağlantı kurarken bir hata oluştu: ${playerData.message || 'Bilinmeyen Hata'}.`;
-                    }
-                } else {
-                    if (playerData && playerData.games && playerData.games.csgo && playerData.games.csgo.skill_level) {
-                        faceitLevel = playerData.games.csgo.skill_level;
-                        console.log(`faceitInteractions: Faceit seviyesi algılandı: ${faceitLevel}`); // DEBUG LOG
-                    } else {
-                        responseMessage = `Faceit nickname "**${nicknameInput}**" için CS:GO oyun verisi bulunamadı.`;
-                    }
-                }
-
-            } catch (apiError) {
-                console.error('faceitInteractions: Faceit API çağrısı sırasında genel hata:', apiError);
-                responseMessage = 'Faceit API ile bağlantı kurarken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.';
-            }
-
-            // === MongoDB'den Faceit Seviye Rollerini Çekme ===
-            let faceitLevelRolesMap = {};
-            if (db) {
                 try {
-                    const collection = db.collection('guild_configs');
-                    const guildConfig = await collection.findOne({ guildId: guildId });
-                    if (guildConfig && guildConfig.faceitLevelRoles) {
-                        faceitLevelRolesMap = guildConfig.faceitLevelRoles;
-                        console.log(`faceitInteractions: MongoDB'den Faceit seviye rolleri çekildi:`, faceitLevelRolesMap);
+                    const FACEIT_API_KEY = env.FACEIT_API_KEY;
+                    if (!FACEIT_API_KEY) throw new Error("FACEIT_API_KEY environment variable is not set.");
+
+                    const faceitApiUrl = `https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(nicknameInput)}`;
+                    const apiResponse = await fetch(faceitApiUrl, {
+                        headers: { 'Authorization': `Bearer ${FACEIT_API_KEY}` }
+                    });
+                    const playerData = await apiResponse.json();
+
+                    if (!apiResponse.ok) {
+                        if (apiResponse.status === 404) {
+                            responseMessage = `Faceit nickname "**${nicknameInput}**" bulunamadı.`;
+                        } else {
+                            console.error('Faceit API error:', playerData);
+                            responseMessage = `Faceit API hatası: ${playerData.message || 'Bilinmeyen Hata'}.`;
+                        }
                     } else {
-                        console.warn(`faceitInteractions: ${guildId} için Faceit seviye rolleri MongoDB'de bulunamadı.`);
+                        if (playerData?.games?.csgo?.skill_level) {
+                            faceitLevel = playerData.games.csgo.skill_level;
+                            console.log(`faceitInteractions: Faceit seviyesi algılandı: ${faceitLevel}`);
+                        } else {
+                            responseMessage = `Faceit nickname "**${nicknameInput}**" için CS:GO verisi yok.`;
+                        }
                     }
-                } catch (mongoError) {
-                    console.error("faceitInteractions: MongoDB'den Faceit seviye rolleri çekerken hata:", mongoError);
+                } catch (apiError) {
+                    console.error('API çağrısı sırasında hata:', apiError);
+                    responseMessage = 'Faceit API hatası oluştu.';
                 }
-            } else {
-                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit verisi kaydedilemedi.");
-            }
-            // === MongoDB'den Çekme Sonu ===
 
-            if (faceitLevel !== null) {
-                // Artık env yerine faceitLevelRolesMap kullanıyoruz
-                roleToAssignId = faceitLevelRolesMap[String(faceitLevel)]; // JSON anahtarları string olabilir
-
-                if (roleToAssignId) {
+                let faceitLevelRolesMap = {};
+                if (db) {
                     try {
-                        console.log(`faceitInteractions: Rol atama denemesi: Kullanıcı ${memberId}, Rol ${roleToAssignId}`); // DEBUG LOG
-                        await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
-                        responseMessage = `Faceit seviyeniz **${faceitLevel}** olarak algılandı ve ilgili rol başarıyla verildi!`;
-                    } catch (e) {
-                        console.error(`faceitInteractions: Faceit rolü verme hatası (Level ${faceitLevel}, Role ID: ${roleToAssignId}):`, e);
-                        responseMessage = `Faceit rolü (${faceitLevel}) verirken bir hata oluştu. Botun sunucuda rol verme izni olduğundan veya rol ID'sinin doğru olduğundan emin olun.`;
-                    }
-                } else {
-                    responseMessage = `Faceit seviyeniz (${faceitLevel}) için tanımlı bir rol bulunamadı. Lütfen sunucu yöneticisinin \`/set-faceit-level-roles\` komutunu kullanarak bu seviye için bir rol tanımladığından emin olun.`;
-                }
-            }
-
-            // === MongoDB'ye Faceit Kullanıcı Verilerini Kaydetme/Güncelleme ===
-            if (db) {
-                try {
-                    const faceitUsersCollection = db.collection('faceit_users');
-                    const faceitUserData = {
-                        discordId: memberId,
-                        guildId: guildId, // Hangi sunucuda olduğunu da kaydedebiliriz
-                        faceitNickname: nicknameInput,
-                        faceitLevel: faceitLevel,
-                        assignedRoleId: roleToAssignId,
-                        lastUpdated: new Date()
-                    };
-
-                    await faceitUsersCollection.updateOne(
-                        { discordId: memberId, guildId: guildId }, // discordId ve guildId'ye göre benzersiz belge
-                        { $set: faceitUserData },
-                        { upsert: true } // Belge yoksa oluştur, varsa güncelle
-                    );
-                    console.log(`faceitInteractions: Faceit kullanıcı verisi MongoDB'ye kaydedildi/güncellendi: ${memberId}`);
-                } catch (mongoError) {
-                    console.error("faceitInteractions: MongoDB'ye Faceit verisi kaydederken hata:", mongoError);
-                    // Kullanıcıya bu hatayı göstermeyebiliriz, sadece loglayabiliriz.
-                }
-            } else {
-                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit verisi kaydedilemedi.");
-            }
-            // === MongoDB Kayıt Sonu ===
-
-            console.log(`faceitInteractions: Faceit rolü işlemi tamamlandı. Yanıt gönderiliyor: ${responseMessage}`); // DEBUG LOG
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: responseMessage,
-                        flags: InteractionResponseFlags.EPHEMERAL,
+                        const collection = db.collection('guild_configs');
+                        const guildConfig = await collection.findOne({ guildId });
+                        if (guildConfig?.faceitLevelRoles) {
+                            faceitLevelRolesMap = guildConfig.faceitLevelRoles;
+                        }
+                    } catch (mongoError) {
+                        console.error("MongoDB hatası:", mongoError);
                     }
                 }
-            );
-            break;
 
-        default:
-            console.warn(`faceitInteractions: Bilinmeyen custom_id: ${custom_id}`); // DEBUG LOG
-            await rest.patch(
-                Routes.webhookMessage(applicationId, interaction.token),
-                {
-                    body: {
-                        content: 'Bilinmeyen bir Faceit bileşeni/modal etkileşimi.',
-                        flags: InteractionResponseFlags.EPHEMERAL,
+                if (faceitLevel !== null) {
+                    roleToAssignId = faceitLevelRolesMap[String(faceitLevel)];
+                    if (roleToAssignId) {
+                        try {
+                            await rest.put(Routes.guildMemberRole(guildId, memberId, roleToAssignId));
+                            responseMessage = `Seviyeniz **${faceitLevel}**, rol başarıyla verildi!`;
+                        } catch (e) {
+                            console.error("Rol verilirken hata:", e);
+                            responseMessage = `Rol verilirken hata oluştu. Botun izinlerini kontrol edin.`;
+                        }
+                    } else {
+                        responseMessage = `Seviye ${faceitLevel} için tanımlı rol bulunamadı.`;
                     }
                 }
-            );
-            break;
+
+                if (db) {
+                    try {
+                        const faceitUsersCollection = db.collection('faceit_users');
+                        await faceitUsersCollection.updateOne(
+                            { discordId: memberId, guildId },
+                            {
+                                $set: {
+                                    discordId: memberId,
+                                    guildId,
+                                    faceitNickname: nicknameInput,
+                                    faceitLevel,
+                                    assignedRoleId: roleToAssignId,
+                                    lastUpdated: new Date()
+                                }
+                            },
+                            { upsert: true }
+                        );
+                    } catch (mongoError) {
+                        console.error("MongoDB kayıt hatası:", mongoError);
+                    }
+                }
+
+                console.log(`Yanıt gönderiliyor: ${responseMessage}`);
+                await rest.patch(
+                    Routes.webhookMessage(applicationId, interaction.token),
+                    {
+                        body: {
+                            content: responseMessage,
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    }
+                );
+                return;
+
+            default:
+                console.warn(`Bilinmeyen custom_id: ${custom_id}`);
+                await rest.patch(
+                    Routes.webhookMessage(applicationId, interaction.token),
+                    {
+                        body: {
+                            content: 'Bilinmeyen bir Faceit etkileşimi.',
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    }
+                );
+                return;
+        }
+    } catch (err) {
+        console.error("Genel handleFaceitInteraction hatası:", err);
+        try {
+            await res.send({
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: 'İşlenemeyen bir hata oluştu. Lütfen tekrar deneyin.',
+                    flags: InteractionResponseFlags.EPHEMERAL
+                }
+            });
+        } catch (innerErr) {
+            console.error("Yedek hata yanıtı da başarısız oldu:", innerErr);
+        }
     }
 }
