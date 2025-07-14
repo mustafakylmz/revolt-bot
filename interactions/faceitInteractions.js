@@ -23,13 +23,11 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
     const guildId = interaction.guild_id;
 
     // Etkileşim tipine göre defer yanıtını ayarla
-    // Faceit rol alma butonu için (MESSAGE_COMPONENT) doğrudan MODAL yanıtı gönderileceği için
-    // burada bir defer yanıtı GÖNDERİLMEZ.
-    // Düzeltme: faceit_role_request_button için de defer yanıtı gönderilecek, ardından modal patch edilecek.
+    // Düzeltme: Tüm MESSAGE_COMPONENT etkileşimleri için defer yanıtı gönderilecek.
     if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
         console.log(`faceitInteractions: DEFERRED_UPDATE_MESSAGE gönderiliyor for custom_id: ${custom_id}`); // DEBUG LOG
         await res.send({
-            type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE, // Veya DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+            type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
             flags: InteractionResponseFlags.EPHEMERAL
         });
     } else if (interaction.type === InteractionType.MODAL_SUBMIT) {
@@ -44,11 +42,11 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
 
     switch (custom_id) {
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
-            console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal takip mesajı olarak gönderiliyor..."); // DEBUG LOG
+            console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal takip yanıtı olarak gönderiliyor..."); // DEBUG LOG
             try {
-                // Etkileşim zaten defer edildiği için, modalı bir takip mesajı olarak gönderiyoruz.
-                await rest.patch(
-                    Routes.webhookMessage(applicationId, interaction.token),
+                // Düzeltme: Modalı göndermek için Routes.interactionCallback ve POST metodu kullanıldı.
+                await rest.post(
+                    Routes.interactionCallback(interaction.id, interaction.token),
                     {
                         body: {
                             type: InteractionResponseType.MODAL, // Modal yanıt türü
@@ -76,9 +74,9 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         }
                     }
                 );
-                console.log("faceitInteractions: Modal takip mesajı başarıyla gönderildi.");
+                console.log("faceitInteractions: Modal takip yanıtı başarıyla gönderildi.");
             } catch (sendError) {
-                console.error("faceitInteractions: Modal takip mesajı gönderme sırasında kritik hata:", sendError);
+                console.error("faceitInteractions: Modal takip yanıtı gönderme sırasında kritik hata:", sendError);
                 // Kullanıcıya hata mesajı gönder
                 try {
                     await rest.patch(
@@ -95,7 +93,6 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                 }
             }
             // Bu case'den sonra Express yanıtını sonlandırmaya gerek yok, çünkü defer yanıtı zaten gönderildi.
-            // Ancak, index.js'deki handleFaceitInteraction çağrısından sonra `return` olduğu için sorun olmaz.
             break;
 
         case 'modal_faceit_nickname_submit': // Faceit nickname modalı gönderildiğinde tetiklenir
