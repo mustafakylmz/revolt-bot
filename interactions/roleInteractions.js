@@ -22,9 +22,9 @@ const ComponentType = {
  * @param {object} db - The MongoDB database instance.
  * @param {object} rest - The Discord REST API client.
  * @param {string} applicationId - The Discord bot's application ID.
- * @param {function} fetchRolesInfo - Function to fetch configurable roles for a guild.
+ * @param {function} fetchRolesInfo - Function to fetch roles information.
  * @param {boolean} isInitialSend - True if this is the initial command to send the message, false for refresh.
- * @param {string[]|null} specificRoleIds - Optional array of specific role IDs to include in the panel.
+ * @param {string[]|null} specificRoleIds - Optional array of specific role IDs to include in the panel. If null, uses configurableRoleIds from DB.
  * @param {string[]|null} memberRoles - Optional array of role IDs the interacting member currently has.
  */
 export async function updateRoleSelectionMessage(guildId, channelId, db, rest, applicationId, fetchRolesInfo, isInitialSend, specificRoleIds = null, memberRoles = []) {
@@ -38,17 +38,14 @@ export async function updateRoleSelectionMessage(guildId, channelId, db, rest, a
             return;
         }
 
-        // fetchRolesInfo'ya filterRoleIds parametresi eklendi
-        // Eğer specificRoleIds varsa, sadece o rolleri getir. Yoksa, veritabanındaki configurableRoleIds'ı kullan.
-        // Bu, kalıcı panelin sadece admin tarafından seçilen rolleri göstermesini sağlar.
+        // Determine which roles to display in the panel
         let rolesToDisplay = [];
-        if (specificRoleIds) { // If specific roles are passed from the /send-role-panel selection
+        if (specificRoleIds) { // If specific roles are passed (from admin's selection)
             rolesToDisplay = await fetchRolesInfo(guildId, specificRoleIds);
         } else { // If refreshing or initial send without specific selection (e.g., from /refresh-role-panel)
             const configurableRoleIds = await db.collection('guild_configs').findOne({ guildId }).then(config => config?.configurableRoleIds || []);
             rolesToDisplay = await fetchRolesInfo(guildId, configurableRoleIds);
         }
-
 
         if (!rolesToDisplay || rolesToDisplay.length === 0) {
             console.warn(`Guild ${guildId} için yapılandırılmış atanabilir roller bulunamadı. Rol paneli boş gönderilecek/güncellenecek.`);

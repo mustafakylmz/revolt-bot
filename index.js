@@ -254,17 +254,27 @@ app.post('/interactions', async (req, res) => {
                 );
 
                 // Fetch ALL roles from the guild to allow admin to select any role
-                // fetchRolesInfo'ya null parametresi ile tüm rolleri getir
                 const allGuildRoles = await fetchRolesInfo(guild_id, null);
                 
+                // Fetch guild config to get custom emoji mappings for roles
+                const guildConfig = await db.collection('guild_configs').findOne({ guildId: guild_id });
+                const roleCustomEmojis = guildConfig?.roleEmojiMappings || {};
+
                 const optionsForSelect = allGuildRoles.map(role => {
                     const option = {
                         label: role.name,
                         value: role.id,
                         default: member.roles.includes(role.id), // Set default based on user's current roles
                     };
-                    // No emoji here, as this is for the admin to select roles for the panel.
-                    // Emojis will be added to the final panel based on DB config.
+                    // Add emoji if a custom emoji is defined for this role in the database
+                    const customEmoji = roleCustomEmojis[role.id];
+                    if (customEmoji) {
+                        option.emoji = {
+                            id: customEmoji.id || null, // Use emoji ID if available, otherwise null for Unicode
+                            name: customEmoji.name,
+                            animated: customEmoji.animated || false // Default to false if not specified
+                        };
+                    }
                     return option;
                 });
 
