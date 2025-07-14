@@ -47,31 +47,50 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
     switch (custom_id) {
         case 'faceit_role_request_button': // "Faceit Rolü Al" butonuna basıldığında tetiklenir
             console.log("faceitInteractions: Faceit Rolü Al butonu tıklandı. Modal yanıtı gönderiliyor..."); // DEBUG LOG
-            // Try-catch bloğu kaldırıldı, yanıtın doğrudan gönderilmesi sağlanıyor.
-            return res.send({ 
-                type: InteractionResponseType.MODAL,
-                data: {
-                    custom_id: 'modal_faceit_nickname_submit',
-                    title: 'Faceit Nickname Gir',
-                    components: [
+            try {
+                // Modal yanıtının doğrudan gönderilmesi sağlanıyor.
+                return res.send({ 
+                    type: InteractionResponseType.MODAL,
+                    data: {
+                        custom_id: 'modal_faceit_nickname_submit',
+                        title: 'Faceit Nickname Gir',
+                        components: [
+                            {
+                                type: MessageComponentTypes.ACTION_ROW,
+                                components: [
+                                    {
+                                        type: MessageComponentTypes.TEXT_INPUT,
+                                        custom_id: 'faceit_nickname_input',
+                                        style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
+                                        label: 'Faceit Kullanıcı Adınız:',
+                                        placeholder: 'örnek: shroud',
+                                        required: true,
+                                        min_length: 3,
+                                        max_length: 30,
+                                    },
+                                ],
+                            },
+                        ],
+                    },
+                });
+            } catch (sendError) {
+                console.error("faceitInteractions: Modal yanıtı gönderme sırasında kritik hata:", sendError);
+                // Modal gönderilemezse kullanıcıya hata mesajı gönder
+                try {
+                    await rest.patch(
+                        Routes.webhookMessage(applicationId, interaction.token),
                         {
-                            type: MessageComponentTypes.ACTION_ROW,
-                            components: [
-                                {
-                                    type: MessageComponentTypes.TEXT_INPUT,
-                                    custom_id: 'faceit_nickname_input',
-                                    style: 1, // TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
-                                    label: 'Faceit Kullanıcı Adınız:',
-                                    placeholder: 'örnek: shroud',
-                                    required: true,
-                                    min_length: 3,
-                                    max_length: 30,
-                                },
-                            ],
-                        },
-                    ],
-                },
-            });
+                            body: {
+                                content: 'Modal açılırken beklenmedik bir hata oluştu. Lütfen bot sahibine bildirin.',
+                                flags: InteractionResponseFlags.EPHEMERAL,
+                            }
+                        }
+                    );
+                } catch (patchError) {
+                    console.error("faceitInteractions: Modal hatası sonrası webhook mesajı gönderme hatası:", patchError);
+                }
+                return; // Etkileşimi kapatmak için
+            }
 
         case 'modal_faceit_nickname_submit': // Faceit nickname modalı gönderildiğinde tetiklenir
             const nicknameInput = interaction.data.components[0].components[0].value;
