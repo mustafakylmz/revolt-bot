@@ -89,7 +89,7 @@ app.post('/interactions', async (req, res) => {
             const custom_id = data?.custom_id;
 
             if (['select_roles_button', 'multi_role_select'].includes(custom_id)) {
-                return await handleRoleInteraction(interaction, res, rest, applicationId, db);
+                await handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo);
             }
 
             if (custom_id === 'faceit_role_request_button' || custom_id === 'modal_faceit_nickname_submit') {
@@ -109,12 +109,15 @@ app.post('/interactions', async (req, res) => {
         console.error('Etkileşim işleme hatası:', error);
         if (interaction?.token) {
             try {
-                await rest.patch(Routes.webhookMessage(applicationId, interaction.token), {
-                    body: {
-                        content: 'Etkileşim işlenemedi. Bot sahibine bildiriniz.',
-                        flags: 64,
+                await rest.patch(
+                    Routes.webhookMessage(applicationId, interaction.token),
+                    {
+                        body: {
+                            content: 'Roller güncellenirken bir hata oluştu.',
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
                     }
-                });
+                );
             } catch (e) {
                 console.error('Webhook mesajı gönderilirken hata:', e);
             }
