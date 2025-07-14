@@ -23,12 +23,11 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-// Discord için raw body middleware
-app.use(express.json({
-    verify: (req, res, buf) => {
-        req.rawBody = buf.toString();
-    }
-}));
+// Discord etkileşimleri için özel bir body parser kullanmaya gerek yok.
+// verifyKeyMiddleware zaten raw body'yi işler ve req.body'yi doldurur.
+// Diğer rotalar için hala JSON body'ye ihtiyacınız varsa,
+// o rotalara özel olarak express.json() ekleyebilirsiniz.
+// Örneğin: app.post('/some-other-route', express.json(), (req, res) => { ... });
 
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 const applicationId = process.env.DISCORD_CLIENT_ID;
@@ -176,6 +175,8 @@ async function initializeMessages() {
 
 
 // Discord etkileşimlerini işleyen ana endpoint
+// verifyKeyMiddleware, raw body'yi işleyip req.body'yi doldurduğu için
+// express.json() veya benzeri bir middleware burada kullanılmamalıdır.
 app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), async (req, res) => {
     const interaction = req.body;
 
