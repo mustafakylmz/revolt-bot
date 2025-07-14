@@ -87,7 +87,105 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
                             flags: InteractionResponseFlags.EPHEMERAL,
                         }
                     });
-                // setup-roles, setup-faceit, set-faceit-level-roles gibi komutlar buraya eklenmeli
+                case 'setup-roles':
+                    const rolesChannelId = options.find(opt => opt.name === 'channel').value;
+                    const rolesArray = [];
+                    // Rol seçeneklerinden ID'leri topla
+                    for (let i = 1; i <= 10; i++) {
+                        const roleOption = options.find(opt => opt.name === `role_${i}`);
+                        if (roleOption && roleOption.value) {
+                            rolesArray.push(roleOption.value);
+                        }
+                    }
+
+                    await saveGuildConfigurableRoles(guildId, rolesArray);
+
+                    await sendOrUpdateMessage(
+                        guildId,
+                        rolesChannelId,
+                        'rolesMessage',
+                        {
+                            content: 'Sunucudaki **diğer rolleri** almak için aşağıdaki butonu kullanın.',
+                            components: [
+                                {
+                                    type: MessageComponentTypes.ACTION_ROW,
+                                    components: [
+                                        {
+                                            type: MessageComponentTypes.BUTTON,
+                                            label: 'Rolleri Seç',
+                                            style: 1, // Primary (mavi)
+                                            custom_id: 'select_roles_button',
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    );
+                    return res.send({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: `Rol seçim mesajı <#${rolesChannelId}> kanalına başarıyla kuruldu ve atanabilir roller kaydedildi.`,
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    });
+
+                case 'setup-faceit':
+                    const faceitChannelId = options.find(opt => opt.name === 'channel').value;
+
+                    await sendOrUpdateMessage(
+                        guildId,
+                        faceitChannelId,
+                        'faceitMessage',
+                        {
+                            content: 'Faceit seviyenize göre rol almak için aşağıdaki butonu kullanın. Bot, Faceit API\'sından seviyenizi çekecektir.',
+                            components: [
+                                {
+                                    type: MessageComponentTypes.ACTION_ROW,
+                                    components: [
+                                        {
+                                            type: MessageComponentTypes.BUTTON,
+                                            label: 'Faceit Rolü Al',
+                                            style: 1, // Primary (mavi)
+                                            custom_id: 'faceit_role_request_button',
+                                        }
+                                    ]
+                                }
+                            ]
+                        }
+                    );
+                    return res.send({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: `Faceit rolü alma mesajı <#${faceitChannelId}> kanalına başarıyla kuruldu.`,
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    });
+
+                case 'set-faceit-level-roles':
+                    const levelRolesMap = {};
+                    for (let i = 1; i <= 10; i++) {
+                        const roleOption = options.find(opt => opt.name === `level_${i}_role`);
+                        if (roleOption) {
+                            levelRolesMap[String(i)] = roleOption.value; // roleOption.value will be the role ID
+                        }
+                    }
+                    await saveGuildFaceitLevelRoles(guildId, levelRolesMap);
+                    return res.send({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'Faceit seviye rolleri başarıyla kaydedildi!',
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    });
+
+                default:
+                    return res.send({
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: 'Bilinmeyen bir komut.',
+                            flags: InteractionResponseFlags.EPHEMERAL,
+                        }
+                    });
             }
         } else if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
             const { custom_id } = interaction.data;
