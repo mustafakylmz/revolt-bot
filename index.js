@@ -245,13 +245,13 @@ async function registerGlobalCommands() {
                 {
                     name: 'channel',
                     description: 'Mesajın gönderileceği kanal.',
-                    type: ApplicationCommandOptionType.CHANNEL,
+                    type: ApplicationCommandOptionType.Channel, // Düzeltme: Enum değeri olarak kullanıldı
                     required: true,
                 },
                 {
                     name: 'roles',
                     description: 'Atanabilir rol ID\'lerinin virgülle ayrılmış listesi.',
-                    type: ApplicationCommandOptionType.STRING,
+                    type: ApplicationCommandOptionType.String, // Düzeltme: Enum değeri olarak kullanıldı
                     required: true,
                 }
             ]
@@ -263,7 +263,7 @@ async function registerGlobalCommands() {
                 {
                     name: 'channel',
                     description: 'Mesajın gönderileceği kanal.',
-                    type: ApplicationCommandOptionType.CHANNEL,
+                    type: ApplicationCommandOptionType.Channel, // Düzeltme: Enum değeri olarak kullanıldı
                     required: true,
                 }
             ]
@@ -275,7 +275,7 @@ async function registerGlobalCommands() {
                 {
                     name: 'level_roles_map',
                     description: 'Faceit seviye ID\'lerini rol ID\'lerine eşleyen JSON stringi (örn: {"1":"rol_id_1", "2":"rol_id_2"}).',
-                    type: ApplicationCommandOptionType.STRING,
+                    type: ApplicationCommandOptionType.String, // Düzeltme: Enum değeri olarak kullanıldı
                     required: true,
                 }
             ]
