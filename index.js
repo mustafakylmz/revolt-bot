@@ -1,13 +1,15 @@
 import express from 'express';
 import dotenv from 'dotenv';
 import pkg from 'discord-interactions';
+// Düzeltme: ApplicationCommandOptionType doğrudan named import olarak eklendi
+import { ApplicationCommandOptionType } from 'discord-interactions';
 const {
     verifyKeyMiddleware,
     InteractionType,
     InteractionResponseType,
     InteractionResponseFlags,
-    MessageComponentTypes,
-    ApplicationCommandOptionType
+    MessageComponentTypes
+    // ApplicationCommandOptionType artık buradan destructure edilmiyor
 } = pkg;
 
 import { REST } from '@discordjs/rest';
