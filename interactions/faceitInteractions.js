@@ -7,8 +7,8 @@ const {
     InteractionType
 } = pkg;
 
-// Düzeltme: TextInputStyles, discord-api-types/v10'dan import edildi
-import { Routes, TextInputStyles } from 'discord-api-types/v10';
+// Düzeltme: TextInputStyles artık import edilmiyor, doğrudan sayısal değeri kullanılıyor
+import { Routes } from 'discord-api-types/v10';
 
 /**
  * Faceit entegrasyonu etkileşimlerini işler.
@@ -62,7 +62,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                                     {
                                         type: MessageComponentTypes.TEXT_INPUT,
                                         custom_id: 'faceit_nickname_input',
-                                        style: TextInputStyles.SHORT, // TextInputStyles.SHORT kullanıldı
+                                        style: 1, // Düzeltme: TextInputStyles.SHORT yerine doğrudan 1 kullanıldı
                                         label: 'Faceit Kullanıcı Adınız:',
                                         placeholder: 'örnek: shroud',
                                         required: true,
@@ -74,8 +74,6 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                         ],
                     },
                 });
-                // Bu log, res.send'den sonra çalışırsa modal yanıtının tamamlandığını gösterir.
-                // console.log("faceitInteractions: Modal yanıtı başarıyla gönderildi (res.send tamamlandı)."); 
             } catch (sendError) {
                 console.error("faceitInteractions: Modal yanıtı gönderme sırasında kritik hata:", sendError);
                 // Modal gönderilemezse kullanıcıya hata mesajı gönder
@@ -152,7 +150,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                     console.error("faceitInteractions: MongoDB'den Faceit seviye rolleri çekerken hata:", mongoError);
                 }
             } else {
-                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit seviye rolleri çekilemedi.");
+                console.warn("faceitInteractions: MongoDB bağlantısı mevcut değil, Faceit verisi kaydedilemedi.");
             }
             // === MongoDB'den Çekme Sonu ===
 
