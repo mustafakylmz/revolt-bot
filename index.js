@@ -223,6 +223,7 @@ app.post('/interactions', verifyKeyMiddleware(process.env.DISCORD_PUBLIC_KEY), a
             // Faceit etkileşimlerini işle
             else if (custom_id === 'faceit_role_request_button') {
                 await handleFaceitInteraction(interaction, res, rest, applicationId, process.env);
+                return; // Önemli: Modal yanıtı gönderildiği için burada Express yanıtını sonlandır.
             }
             // Bilinmeyen bileşen
             else {
