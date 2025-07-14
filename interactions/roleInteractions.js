@@ -8,32 +8,15 @@ const {
     MessageComponentTypes
 } = pkg;
 
-export async function handleRoleInteraction(interaction, res, rest, applicationId, db) {
+const ComponentType = {
+    ACTION_ROW: 1,
+    STRING_SELECT: 3,
+};
+
+export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
     const { custom_id } = interaction.data;
     const guildId = interaction.guild_id;
     const memberId = interaction.member.user.id;
-
-    async function getGuildConfigurableRoles(guildId) {
-        try {
-            const result = await db.collection('role_configs').findOne({ guild_id: guildId });
-            return result?.role_ids || [];
-        } catch (error) {
-            console.error('getGuildConfigurableRoles error:', error);
-            return [];
-        }
-    }
-
-    const fetchRolesInfo = async (guildId) => {
-        const configurableRoleIds = await getGuildConfigurableRoles(guildId);
-        if (configurableRoleIds.length === 0) return [];
-        try {
-            const guildRoles = await rest.get(Routes.guildRoles(guildId));
-            return guildRoles.filter(role => configurableRoleIds.includes(role.id));
-        } catch (error) {
-            console.error('Rol bilgisi alınamadı:', error);
-            return [];
-        }
-    };
 
     // Rol butonuna basıldığında açılacak rol seçim menüsü
     if (custom_id === 'select_roles_button') {
@@ -62,10 +45,10 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
                 content: 'Almak istediğiniz rolleri seçin:',
                 components: [
                     {
-                        type: MessageComponentTypes.ACTION_ROW,
+                        type: ComponentType.ACTION_ROW,
                         components: [
                             {
-                                type: MessageComponentTypes.STRING_SELECT,
+                                type: ComponentType.STRING_SELECT,
                                 custom_id: 'multi_role_select',
                                 placeholder: 'Rolleri Seçin',
                                 min_values: 0,
@@ -84,6 +67,7 @@ export async function handleRoleInteraction(interaction, res, rest, applicationI
     if (custom_id === 'multi_role_select') {
         const selectedRoleIds = interaction.data.values;
         const roles = await fetchRolesInfo(guildId);
+
         const allConfigurableIds = roles.map(role => role.id);
 
         try {
