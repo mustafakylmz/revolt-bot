@@ -3,7 +3,8 @@ const {
     InteractionResponseType,
     InteractionResponseFlags,
     MessageComponentTypes,
-    TextInputStyles
+    TextInputStyles,
+    InteractionType // Düzeltme: InteractionType buraya eklendi
 } = pkg;
 
 // Düzeltme: Routes artık @discordjs/rest yerine discord-api-types/v10'dan import ediliyor.
