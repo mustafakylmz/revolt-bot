@@ -3,11 +3,12 @@ const {
     InteractionResponseType,
     InteractionResponseFlags,
     MessageComponentTypes,
-    TextInputStyles, // TextInputStyles buraya destructure edilmiş durumda
+    // TextInputStyles artık buradan destructure edilmiyor
     InteractionType
 } = pkg;
 
-import { Routes } from 'discord-api-types/v10';
+// Düzeltme: TextInputStyles, discord-api-types/v10'dan import edildi
+import { Routes, TextInputStyles } from 'discord-api-types/v10';
 
 /**
  * Faceit entegrasyonu etkileşimlerini işler.
@@ -61,7 +62,7 @@ export async function handleFaceitInteraction(interaction, res, rest, applicatio
                                     {
                                         type: MessageComponentTypes.TEXT_INPUT,
                                         custom_id: 'faceit_nickname_input',
-                                        style: TextInputStyles.SHORT, // Düzeltme: TextInputStyles.SHORT kullanıldı
+                                        style: TextInputStyles.SHORT, // TextInputStyles.SHORT kullanıldı
                                         label: 'Faceit Kullanıcı Adınız:',
                                         placeholder: 'örnek: shroud',
                                         required: true,
