@@ -1,11 +1,17 @@
 // roleInteractions.js
-import {
+import pkg from 'discord-interactions';
+import { Routes } from 'discord-api-types/v10';
+
+const {
     InteractionResponseType,
     InteractionResponseFlags,
-    MessageComponentTypes,
-    ComponentType
-} from 'discord-interactions';
-import { Routes } from 'discord-api-types/v10';
+    MessageComponentTypes
+} = pkg;
+
+const ComponentType = {
+    ACTION_ROW: 1,
+    STRING_SELECT: 3,
+};
 
 export async function handleRoleInteraction(interaction, res, rest, applicationId, db, fetchRolesInfo) {
     const { custom_id } = interaction.data;
