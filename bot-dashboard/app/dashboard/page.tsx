@@ -3,7 +3,7 @@
 
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
-import { useState, useEffect } from 'react'; // useState ve useEffect hook'larını içe aktar
+import { useState, useEffect } from 'react';
 
 // Discord Guild (Sunucu) tipi tanımlaması
 interface DiscordGuild {
@@ -22,28 +22,14 @@ export default function DashboardPage() {
   const [loadingGuilds, setLoadingGuilds] = useState(true); // Sunucu yükleme durumu
   const [errorGuilds, setErrorGuilds] = useState<string | null>(null); // Sunucu yükleme hatası
 
-  // Oturum bilgileri yüklenirken
-  if (status === 'loading') {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
-        <p style={{ fontSize: '1.2em', color: '#333' }}>Dashboard yükleniyor...</p>
-      </div>
-    );
-  }
-
-  // Kullanıcı giriş yapmamışsa ana sayfaya yönlendir
-  if (status === 'unauthenticated') {
-    router.push('/');
-    return null;
-  }
-
   // Sunucuları getirme işlemi
+  // useEffect hook'u her zaman koşulsuz olarak bileşenin en üst seviyesinde çağrılmalıdır.
   useEffect(() => {
     const fetchGuilds = async () => {
       setLoadingGuilds(true);
       setErrorGuilds(null);
       try {
-        // Yeni oluşturduğumuz API rotasını çağır
+        // API rotasını çağır
         const res = await fetch('/api/discord/guilds');
         const data = await res.json();
 
@@ -67,6 +53,25 @@ export default function DashboardPage() {
     }
   }, [session]); // session değiştiğinde tekrar çalıştır
 
+  // Oturum bilgileri yüklenirken
+  if (status === 'loading') {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', backgroundColor: '#f0f2f5' }}>
+        <p style={{ fontSize: '1.2em', color: '#333' }}>Dashboard yükleniyor...</p>
+      </div>
+    );
+  }
+
+  // Kullanıcı giriş yapmamışsa ana sayfaya yönlendir
+  if (status === 'unauthenticated') {
+    // Yönlendirme, render döngüsünün dışında veya bir useEffect içinde yapılmalıdır.
+    // Ancak burada basitlik için doğrudan yönlendiriyoruz.
+    // Bu, istemci tarafında çalışacağı için sorun yaratmaz.
+    router.push('/');
+    return null; // Yönlendirme yapılırken hiçbir şey render etme
+  }
+
+  // Kullanıcı giriş yapmışsa dashboard içeriğini göster
   return (
     <div style={{
       display: 'flex',
