@@ -1,6 +1,6 @@
 // app/api/discord/guilds/route.ts
-import { getServerSession } from "next-auth"; // Sunucu tarafında oturum almak için
-import { authOptions } from "../../auth/[...nextauth]/route"; // NextAuth yapılandırmasını içe aktar
+import { getServerSession } from "next-auth";
+import { authOptions } from "../../../lib/auth"; // authOptions'ı yeni konumundan içe aktar
 
 // Discord API'den sunucuları getirmek için GET isteği işleyicisi
 export async function GET() {
