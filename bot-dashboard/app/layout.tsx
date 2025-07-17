@@ -1,7 +1,7 @@
 // app/layout.tsx
 import './globals.css'; // Global CSS stillerinizi içe aktarın
 import { Inter } from 'next/font/google';
-import { SessionProvider } from 'next-auth/react'; // NextAuth SessionProvider'ı içe aktarın
+import { Providers } from './providers'; // Yeni Providers bileşenini içe aktarın
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -20,12 +20,11 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={inter.className}>
-        {/* SessionProvider ile tüm uygulamayı sarın. */}
-        {/* Bu, NextAuth'ın client-side oturum yönetimi için gereklidir. */}
-        {/* Oturum verileri, alt bileşenlerde useSession hook'u aracılığıyla erişilebilir olacaktır. */}
-        <SessionProvider>
+        {/* Providers bileşeni ile tüm uygulamayı sarın. */}
+        {/* Providers bileşeni bir istemci bileşeni olduğu için React Context hatasını önler. */}
+        <Providers>
           {children}
-        </SessionProvider>
+        </Providers>
       </body>
     </html>
   );
