@@ -1,6 +1,7 @@
 // app/api/auth/[...nextauth]/route.ts
-import NextAuth from "next-auth";
+import NextAuth, { Account, Profile, Session } from "next-auth"; // Session ve Account, Profile tiplerini ekledik
 import DiscordProvider from "next-auth/providers/discord";
+import { JWT } from "next-auth/jwt"; // JWT tipini ekledik
 
 // Discord API izinleri (scopes) hakkında daha fazla bilgi için:
 // https://discord.com/developers/docs/topics/oauth2#bot-scopes
@@ -21,7 +22,8 @@ const authOptions = { // authOptions değişkenini dışa aktarmıyoruz, sadece 
   // Oturum ve geri arama (callback) ayarları
   callbacks: {
     // JWT (JSON Web Token) oluşturulduğunda veya güncellendiğinde çalışır
-    async jwt({ token, account, profile }) {
+    // Parametrelere açıkça tip tanımları ekledik
+    async jwt({ token, account, profile }: { token: JWT; account: Account | null; profile?: Profile }) {
       // İlk girişte (account ve profile mevcutsa) token'a Discord bilgilerini ekle
       if (account) {
         token.accessToken = account.access_token;
@@ -30,7 +32,8 @@ const authOptions = { // authOptions değişkenini dışa aktarmıyoruz, sadece 
       return token;
     },
     // Oturum nesnesi oluşturulduğunda veya güncellendiğinde çalışır
-    async session({ session, token }) {
+    // Parametrelere açıkça tip tanımları ekledik
+    async session({ session, token }: { session: Session; token: JWT }) {
       // Oturum nesnesine token'daki bilgileri ekle
       session.accessToken = token.accessToken;
       session.user.id = token.id;
