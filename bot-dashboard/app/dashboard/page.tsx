@@ -4,6 +4,7 @@
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
+import Link from 'next/link'; // Link bileşenini içe aktar
 
 // Discord Guild (Sunucu) tipi tanımlaması
 interface DiscordGuild {
@@ -64,9 +65,6 @@ export default function DashboardPage() {
 
   // Kullanıcı giriş yapmamışsa ana sayfaya yönlendir
   if (status === 'unauthenticated') {
-    // Yönlendirme, render döngüsünün dışında veya bir useEffect içinde yapılmalıdır.
-    // Ancak burada basitlik için doğrudan yönlendiriyoruz.
-    // Bu, istemci tarafında çalışacağı için sorun yaratmaz.
     router.push('/');
     return null; // Yönlendirme yapılırken hiçbir şey render etme
   }
@@ -117,30 +115,43 @@ export default function DashboardPage() {
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '20px', marginTop: '20px' }}>
             {guilds.map((guild) => (
-              <div key={guild.id} style={{
-                backgroundColor: '#f9f9f9',
-                padding: '15px',
-                borderRadius: '10px',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '15px',
-                border: '1px solid #e0e0e0'
-              }}>
-                {guild.icon ? (
-                  <img
-                    src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`}
-                    alt={`${guild.name} icon`}
-                    style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }}
-                  />
-                ) : (
-                  <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#7289da', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontSize: '1.5em', fontWeight: 'bold' }}>
-                    {guild.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
-                <span style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#333' }}>{guild.name}</span>
-                {/* Gelecekte buraya sunucu ayarları linki eklenecek */}
-              </div>
+              // Her bir sunucu kartını Link bileşeni ile sarıyoruz
+              <Link key={guild.id} href={`/dashboard/${guild.id}`} passHref>
+                <div style={{
+                  backgroundColor: '#f9f9f9',
+                  padding: '15px',
+                  borderRadius: '10px',
+                  boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '15px',
+                  border: '1px solid #e0e0e0',
+                  cursor: 'pointer', // Tıklanabilir olduğunu belirtmek için imleç stilini değiştir
+                  transition: 'transform 0.2s ease, box-shadow 0.2s ease', // Hover efekti için geçiş
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-5px)';
+                  e.currentTarget.style.boxShadow = '0 6px 15px rgba(0,0,0,0.1)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.05)';
+                }}
+                >
+                  {guild.icon ? (
+                    <img
+                      src={`https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=64`}
+                      alt={`${guild.name} icon`}
+                      style={{ width: '50px', height: '50px', borderRadius: '50%', objectFit: 'cover' }}
+                    />
+                  ) : (
+                    <div style={{ width: '50px', height: '50px', borderRadius: '50%', backgroundColor: '#7289da', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontSize: '1.5em', fontWeight: 'bold' }}>
+                      {guild.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <span style={{ fontSize: '1.1em', fontWeight: 'bold', color: '#333' }}>{guild.name}</span>
+                </div>
+              </Link>
             ))}
           </div>
         )}
