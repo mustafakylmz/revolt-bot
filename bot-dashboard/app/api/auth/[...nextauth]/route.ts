@@ -9,7 +9,8 @@ import { JWT } from "next-auth/jwt";
 const scopes = ['identify', 'email', 'guilds', 'guilds.members.read'];
 
 // NextAuth yapılandırma seçenekleri
-const authOptions = {
+// authOptions'ı dışa aktarıyoruz, böylece diğer dosyalar (örn. getServerSession için) erişebilir.
+export const authOptions = {
   // Kimlik doğrulama sağlayıcılarını yapılandırın
   providers: [
     DiscordProvider({
@@ -17,6 +18,7 @@ const authOptions = {
       clientSecret: process.env.DISCORD_CLIENT_SECRET!,
       authorization: { params: { scope: scopes.join(' ') } },
     }),
+    // Gelecekte başka sağlayıcılar (Google, GitHub vb.) eklenebilir
   ],
   // Oturum ve geri arama (callback) ayarları
   callbacks: {
@@ -31,9 +33,8 @@ const authOptions = {
     // Oturum nesnesi oluşturulduğunda veya güncellendiğinde çalışır
     async session({ session, token }: { session: Session; token: JWT }) {
       // Oturum nesnesine token'daki bilgileri ekle
-      // token.accessToken'ı string olarak cast ediyoruz
       session.accessToken = token.accessToken as string | undefined;
-      session.user.id = token.id as string | undefined; // id'yi de string olarak cast ediyoruz
+      session.user.id = token.id as string | undefined;
       return session;
     }
   },
