@@ -8,6 +8,9 @@ import { ObjectId } from "mongodb"; // ObjectId tipini içe aktar
 export async function GET(request: Request, { params }: { params: { guildId: string } }) {
   try {
     const session = await getServerSession(authOptions);
+    console.log("API: /api/guilds/[guildId]/config - Session:", session); // DEBUG LOG
+    console.log("API: /api/guilds/[guildId]/config - Access Token:", session?.accessToken); // DEBUG LOG
+
     if (!session || !session.accessToken) {
       return new Response(JSON.stringify({ message: "Yetkisiz" }), { status: 401 });
     }
