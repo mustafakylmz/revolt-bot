@@ -75,7 +75,7 @@ export default function HomePage() {
                   href="/dashboard"
                   className="inline-block bg-discord-blurple text-white px-8 py-3 rounded-lg font-semibold hover:bg-discord-blurple/90 transition-colors"
                 >
-                  Dashboard'a Git
+                  Dashboard&apos;a Git
                 </Link>
               </div>
             ) : (

@@ -2,7 +2,7 @@
 'use client';
 
 import { useSession } from 'next-auth/react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -39,13 +39,7 @@ export default function GuildDashboardPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    if (session && guildId) {
-      fetchGuildData();
-    }
-  }, [session, guildId]);
-
-  const fetchGuildData = async () => {
+  const fetchGuildData = useCallback(async () => {
     try {
       // Fetch guild info
       const guildResponse = await fetch(`/api/discord/guilds`);
@@ -75,7 +69,13 @@ export default function GuildDashboardPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [guildId, router]);
+
+  useEffect(() => {
+    if (session && guildId) {
+      fetchGuildData();
+    }
+  }, [session, guildId, fetchGuildData]);
 
   const saveConfig = async () => {
     if (!config) return;
@@ -132,7 +132,7 @@ export default function GuildDashboardPage() {
           <h1 className="text-2xl font-bold text-gray-800 mb-4">Sunucu Bulunamadı</h1>
           <p className="text-gray-600 mb-6">Bu sunucuya erişim izniniz bulunmuyor.</p>
           <Link href="/dashboard" className="bg-discord-blurple text-white px-6 py-3 rounded-lg font-semibold hover:bg-discord-blurple/90 transition-colors">
-            Dashboard'a Dön
+            Dashboard&apos;a Dön
           </Link>
         </div>
       </div>
@@ -246,7 +246,7 @@ export default function GuildDashboardPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-gray-500 text-center">
-                        Henüz yapılandırılmış rol bulunmuyor. Discord'da /send-role-panel komutunu kullanın.
+                        Henüz yapılandırılmış rol bulunmuyor. Discord&apos;da /send-role-panel komutunu kullanın.
                       </p>
                     )}
                   </div>
@@ -262,7 +262,7 @@ export default function GuildDashboardPage() {
                     Faceit Seviye Rolleri
                   </label>
                   <p className="text-sm text-gray-500 mb-4">
-                    Her Faceit seviyesi için atanacak rol ID'lerini belirleyin.
+                    Her Faceit seviyesi için atanacak rol ID&apos;lerini belirleyin.
                   </p>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((level) => (
