@@ -1,26 +1,42 @@
 {
-  "name": "revolt-bot",
+  "name": "revolt-bot-unified",
   "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
+  "private": true,
   "scripts": {
-    "start": "node index.js",
-    "register-commands": "node run-once-register-commands.js"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "register-commands": "node scripts/register-commands.js",
+    "docker:build": "docker build -t revolt-bot .",
+    "docker:run": "docker run -p 3000:3000 --env-file .env revolt-bot",
+    "docker:compose:up": "docker-compose up -d",
+    "docker:compose:down": "docker-compose down",
+    "docker:compose:logs": "docker-compose logs -f",
+    "deploy:local": "bash scripts/deploy.sh ghcr.io/owner/revolt-bot:latest main",
+    "deploy:setup-cron": "bash scripts/setup-cron.sh",
+    "health": "curl -f http://localhost:3000/api/health || exit 1"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
+    "@discordjs/rest": "^2.0.0",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
     "axios": "^1.10.0",
-    "body-parser": "^2.2.0",
+    "discord-api-types": "^0.37.0",
     "discord-interactions": "^3.4.0",
-    "discord.js": "^14.21.0",
-    "dotenv": "^17.2.0",
-    "express": "^4.21.2",
-    "mongodb": "^6.8.0",
-    "node-fetch": "^3.3.2",
-    "raw-body": "^3.0.0",
-    "tweetnacl": "^1.0.3"
+    "mongodb": "^6.17.0",
+    "next": "14.2.5",
+    "next-auth": "^4.24.7",
+    "react": "^18",
+    "react-dom": "^18",
+    "typescript": "^5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.11",
+    "eslint": "^8",
+    "eslint-config-next": "14.2.5",
+    "postcss": "^8",
+    "tailwindcss": "^3.4.1"
   }
 }

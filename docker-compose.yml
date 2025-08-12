@@ -1,0 +1,90 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  revolt-bot:
+    build: .
+    container_name: revolt-bot
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    networks:
+      - revolt-bot-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 3s
+      start_period: 40s
+      retries: 3
+    labels:
+      - "service=revolt-bot"
+      - "traefik.enable=true"
+      - "traefik.http.routers.revolt-bot.rule=Host(`localhost`)"
+      - "traefik.http.services.revolt-bot.loadbalancer.server.port=3000"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./logs:/app/logs:rw
+
+  mongodb:
+    image: mongo:7
+    container_name: revolt-bot-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_PASSWORD:-password}
+      MONGO_INITDB_DATABASE: ${MONGO_DATABASE:-revolt-bot}
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongodb/init:/docker-entrypoint-initdb.d:ro
+    networks:
+      - revolt-bot-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # Optional: Reverse proxy
+  traefik:
+    image: traefik:v3.0
+    container_name: revolt-bot-traefik
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Dashboard
+    command:
+      - "--api.dashboard=true"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@revolt.tr}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "letsencrypt:/letsencrypt"
+    networks:
+      - revolt-bot-network
+    profiles:
+      - proxy
+
+networks:
+  revolt-bot-network:
+    driver: bridge
+
+volumes:
+  mongodb_data:
+    driver: local
+  letsencrypt:
+    driver: local
