@@ -91,6 +91,16 @@ jobs:
     steps:
     - name: Deploy via webhook
       run: |
+        if [ -z "${{ secrets.DEPLOY_WEBHOOK_URL }}" ]; then
+          echo "⚠️ DEPLOY_WEBHOOK_URL secret not set. Skipping deployment."
+          echo "🔧 To enable automatic deployment:"
+          echo "1. Set DEPLOY_WEBHOOK_URL secret in repository settings"
+          echo "2. Set DEPLOY_TOKEN secret for authentication"
+          echo "3. Configure your production server to handle webhooks"
+          exit 0
+        fi
+        
+        echo "🚀 Deploying to production..."
         curl -X POST "${{ secrets.DEPLOY_WEBHOOK_URL }}" \
           -H "Authorization: Bearer ${{ secrets.DEPLOY_TOKEN }}" \
           -H "Content-Type: application/json" \
@@ -99,4 +109,7 @@ jobs:
             "sha": "${{ github.sha }}",
             "repository": "${{ github.repository }}",
             "image": "ghcr.io/${{ github.repository }}:latest"
-          }'
+          }' && echo "✅ Deployment webhook sent successfully" || {
+            echo "❌ Deployment webhook failed"
+            exit 1
+          }
