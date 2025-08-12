@@ -123,8 +123,7 @@ Güvenlik testleri yaparken aşağıdakiler **yasaktır**:
 Kritik güvenlik sorunları için:
 
 - **24/7 Email**: info@revolt.tr
-- **Discord**: @security-team
-- **Phone**: +90 XXX XXX XXXX (sadece acil durumlar)
+- **Discord**: @revolttr
 
 ---
 

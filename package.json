@@ -15,7 +15,9 @@
     "docker:compose:logs": "docker-compose logs -f",
     "deploy:local": "bash scripts/deploy.sh ghcr.io/owner/revolt-bot:latest main",
     "deploy:setup-cron": "bash scripts/setup-cron.sh",
-    "health": "curl -f http://localhost:3000/api/health || exit 1"
+    "health": "curl -f http://localhost:3000/api/health || exit 1",
+    "cleanup:github": "bash scripts/cleanup-github.sh",
+    "cleanup:manual": "powershell -ExecutionPolicy Bypass -File scripts/manual-cleanup.ps1"
   },
   "dependencies": {
     "@discordjs/rest": "^2.0.0",

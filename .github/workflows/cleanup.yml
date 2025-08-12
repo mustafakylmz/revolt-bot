@@ -1,0 +1,205 @@
+name: GitHub Cleanup
+
+on:
+  schedule:
+    # Run every Sunday at 2 AM UTC
+    - cron: '0 2 * * 0'
+  workflow_dispatch:
+    inputs:
+      force_cleanup:
+        description: 'Force cleanup of all old data'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  REPO_OWNER: ${{ github.repository_owner }}
+  REPO_NAME: ${{ github.event.repository.name }}
+
+jobs:
+  cleanup:
+    name: Cleanup Old Data
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+      contents: read
+      deployments: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq curl
+
+    - name: Make cleanup script executable
+      run: chmod +x scripts/cleanup-github.sh
+
+    - name: Run GitHub cleanup
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        ./scripts/cleanup-github.sh "$GITHUB_TOKEN" "$REPO_OWNER" "$REPO_NAME"
+
+    - name: Clean workflow runs (alternative method)
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { owner, repo } = context.repo;
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          
+          // Get all workflows
+          const workflows = await github.rest.actions.listRepoWorkflows({
+            owner,
+            repo,
+          });
+          
+          for (const workflow of workflows.data.workflows) {
+            console.log(`Processing workflow: ${workflow.name} (${workflow.id})`);
+            
+            try {
+              // Get workflow runs
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner,
+                repo,
+                workflow_id: workflow.id,
+                per_page: 100,
+              });
+              
+              // Filter old runs
+              const oldRuns = runs.data.workflow_runs.filter(run => 
+                new Date(run.created_at) < thirtyDaysAgo
+              );
+              
+              console.log(`Found ${oldRuns.length} old runs for workflow ${workflow.name}`);
+              
+              // Delete old runs
+              for (const run of oldRuns) {
+                try {
+                  await github.rest.actions.deleteWorkflowRun({
+                    owner,
+                    repo,
+                    run_id: run.id,
+                  });
+                  console.log(`Deleted workflow run ${run.id}`);
+                  
+                  // Rate limiting
+                  await new Promise(resolve => setTimeout(resolve, 100));
+                } catch (error) {
+                  console.error(`Failed to delete run ${run.id}: ${error.message}`);
+                }
+              }
+            } catch (error) {
+              console.error(`Failed to process workflow ${workflow.id}: ${error.message}`);
+            }
+          }
+
+    - name: Clean old deployments
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { owner, repo } = context.repo;
+          const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+          
+          try {
+            // Get deployments
+            const deployments = await github.rest.repos.listDeployments({
+              owner,
+              repo,
+              per_page: 100,
+            });
+            
+            // Filter old deployments
+            const oldDeployments = deployments.data.filter(deployment => 
+              new Date(deployment.created_at) < thirtyDaysAgo
+            );
+            
+            console.log(`Found ${oldDeployments.length} old deployments`);
+            
+            // Set deployments to inactive and delete
+            for (const deployment of oldDeployments) {
+              try {
+                // Set to inactive first
+                await github.rest.repos.createDeploymentStatus({
+                  owner,
+                  repo,
+                  deployment_id: deployment.id,
+                  state: 'inactive',
+                  description: 'Cleaned up by automation',
+                });
+                
+                // Then delete
+                await github.rest.repos.deleteDeployment({
+                  owner,
+                  repo,
+                  deployment_id: deployment.id,
+                });
+                
+                console.log(`Deleted deployment ${deployment.id}`);
+                
+                // Rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (error) {
+                console.error(`Failed to delete deployment ${deployment.id}: ${error.message}`);
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to clean deployments: ${error.message}`);
+          }
+
+    - name: Clean old artifacts
+      uses: actions/github-script@v7
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const { owner, repo } = context.repo;
+          const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          
+          try {
+            // Get artifacts
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner,
+              repo,
+              per_page: 100,
+            });
+            
+            // Filter old artifacts
+            const oldArtifacts = artifacts.data.artifacts.filter(artifact => 
+              new Date(artifact.created_at) < sevenDaysAgo
+            );
+            
+            console.log(`Found ${oldArtifacts.length} old artifacts`);
+            
+            // Delete old artifacts
+            for (const artifact of oldArtifacts) {
+              try {
+                await github.rest.actions.deleteArtifact({
+                  owner,
+                  repo,
+                  artifact_id: artifact.id,
+                });
+                
+                console.log(`Deleted artifact ${artifact.id} (${artifact.name})`);
+                
+                // Rate limiting
+                await new Promise(resolve => setTimeout(resolve, 100));
+              } catch (error) {
+                console.error(`Failed to delete artifact ${artifact.id}: ${error.message}`);
+              }
+            }
+          } catch (error) {
+            console.error(`Failed to clean artifacts: ${error.message}`);
+          }
+
+    - name: Summary
+      run: |
+        echo "🧹 GitHub cleanup completed successfully!"
+        echo "✅ Old workflow runs cleaned up (>30 days)"
+        echo "✅ Old deployments removed (>30 days)"
+        echo "✅ Old artifacts deleted (>7 days)"
+        echo "📊 Next cleanup will run next Sunday at 2 AM UTC"

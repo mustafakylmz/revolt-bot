@@ -1,0 +1,118 @@
+[33m307b80f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m feat: complete bot unification with auto-deployment system
+[33m27cea46[m Delete .env
+[33m5ff5a1d[m Update route.ts
+[33m081097d[m Update route.ts
+[33m0e73d77[m web için mongodb güncellemesi
+[33m862f349[m sunucu içerik yönetimi
+[33md64e445[m Update page.tsx
+[33m5160340[m auth.ts eklemesi
+[33ma7768ad[m Update next-auth.d.ts
+[33m68d9e07[m Update route.ts
+[33m25e4b7f[m dashboard guild güncellemesi
+[33m1f2074d[m Create page.tsx
+[33m239ec3c[m providers.tsx eklemesi
+[33m50d27ae[m Update route.ts
+[33m87c59ca[m Update next-auth.d.ts
+[33m7476c90[m next-auth.d.ts güncellemesi
+[33m4cce949[m Update route.ts
+[33m48b52b5[m Update route.ts
+[33mbf56d3a[m tailwind güncelleme
+[33mac4eb68[m next.config.mjs değişimi
+[33m2430412[m Web Dashboard Güncelleme
+[33ma6705a0[m WEBSİZ ÇALIŞAN HALİ
+[33maa10e5a[m Update package.json
+[33mc9f9aed[m client güncelleme
+[33md603c64[m Update package.json
+[33m547c589[m Büyük WEB Güncellemesi
+[33m3ad06dc[m rolleri seçtirme eklerken
+[33m1540809[m icon güncellemesi
+[33m163146c[m Yeni update
+[33m1343bd7[m son güncelleme faceit rank çalışıyor + rol sistemi
+[33m59eef19[m Update roleInteractions.js
+[33m9ff4b6c[m yeni
+[33mb9309d1[m Update roleInteractions.js
+[33m8b57455[m oto faceit rank güncelleme
+[33m8389b66[m Update faceitInteractions.js
+[33m8fd0443[m Update faceitInteractions.js
+[33md52c0b6[m yeni
+[33m19de110[m Update index.js
+[33mcb0ed5f[m eski hal
+[33m2560714[m cg güncelleme
+[33m9b30c7d[m Update index.js
+[33m5fff751[m Update roleInteractions.js
+[33m6192c81[m Hata fix
+[33mef4f7ad[m role interaksyionlar
+[33m2d323ae[m Merge branch 'main' of https://github.com/mustafakylmz/revolt-bot
+[33m2e9198c[m yeni paket raw body
+[33m247e64c[m Update index.js
+[33m55c2736[m Update index.js
+[33me5c56b4[m new update
+[33m4c50b34[m Update faceitInteractions.js
+[33mfebb5ef[m Update faceitInteractions.js
+[33mc010f39[m Update faceitInteractions.js
+[33ma0cb1cc[m Update faceitInteractions.js
+[33m0d19b4e[m Update faceitInteractions.js
+[33m4aa3384[m Update faceitInteractions.js
+[33m5694fe6[m Update faceitInteractions.js
+[33mc73fa4f[m Update faceitInteractions.js
+[33m40de0a3[m Update faceitInteractions.js
+[33m65bed9f[m Update index.js
+[33m4d7bb52[m Update index.js
+[33m4d23ada[m Update index.js
+[33m2e8499f[m Update index.js
+[33m0c17352[m Update index.js
+[33m32802ef[m Update index.js
+[33mdf4ce23[m Update index.js
+[33mf4b05b8[m Update index.js
+[33mf863d29[m Update index.js
+[33mf069ed1[m Update roleInteractions.js
+[33m34dd01d[m Update faceitInteractions.js
+[33m0ce15ce[m Update index.js
+[33m32ae39c[m node_module update
+[33m8461235[m Delete node_modules directory
+[33m80f0eca[m Update package.json
+[33me8caaa4[m Update faceitInteractions.js
+[33m6cd4599[m Update roleInteractions.js
+[33m57c3c95[m Update index.js
+[33mf729b69[m Update faceitInteractions.js
+[33mbe016ff[m Update faceitInteractions.js
+[33m41a6b8d[m Update index.js
+[33mcb03f5f[m Update index.js
+[33m6e09f14[m Update faceitInteractions.js
+[33mc548df3[m Update faceitInteractions.js
+[33mb61fa89[m Update roleInteractions.js
+[33mbfb6108[m Update index.js
+[33m595864f[m Create faceitInteractions.js
+[33mb41d195[m Create roleInteractions.js
+[33mec37bf4[m Update index.js
+[33m34e133c[m Update index.js
+[33mea675e5[m Update index.js
+[33m15a9d30[m Update index.js
+[33m3e421d5[m Update index.js
+[33m7b1977a[m Update index.js
+[33m319267b[m Update index.js
+[33m86994af[m Update index.js
+[33m629c9ac[m Update index.js
+[33mc918c7c[m Update index.js
+[33mc620286[m Update index.js
+[33m88ccf4a[m v1.2.5
+[33md375013[m Update index.js
+[33m2cee463[m v1.2.4
+[33m3c764bb[m Update index.js
+[33me134938[m v1.2.3
+[33mf09b310[m Update index.js
+[33mcc187bf[m Create run-once-register-commands.js
+[33m96801e8[m Update package.json
+[33mf489693[m v1.2.1
+[33m5ae51a4[m Update index.js
+[33m1905765[m v.1.2
+[33m72b6ad8[m Update index.js
+[33m5a8d328[m Update index.js
+[33mc53421c[m Update index.js
+[33m0c72552[m Update package.json
+[33m46a86b7[m v1.1.3
+[33m1c209b6[m v1.1.3
+[33m33f5e19[m v1.1.2
+[33m9ab5fa1[m v1.1
+[33mf05c3c7[m v1.1
+[33mcb536b0[m V1.0
