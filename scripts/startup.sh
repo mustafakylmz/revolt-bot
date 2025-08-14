@@ -1,25 +1,20 @@
 #!/bin/bash
 
-# Revolt Bot Startup Script
-# Bu script uygulamayı başlatır ve gerekli kontrolleri yapar
+# Revolt Bot Startup Script (PM2 ile)
+# Bu script uygulamayı PM2 ile başlatır ve gerekli kontrolleri yapar
 
 set -e
 
-echo "🚀 Revolt Bot başlatılıyor..."
+echo "🚀 Revolt Bot PM2 ile başlatılıyor..."
 
 # Dizine geç
 cd "$(dirname "$0")/.."
 
-# Uygulama zaten çalışıyor mu kontrol et
-if pgrep -f "npm start" > /dev/null; then
-    echo "⚠️ Uygulama zaten çalışıyor"
+# PM2 durumunu kontrol et
+if npx pm2 list | grep -q "revolt-bot"; then
+    echo "⚠️ Uygulama zaten PM2'de çalışıyor"
+    npx pm2 status
     exit 0
-fi
-
-# Port 3000 kullanımda mı kontrol et
-if ss -tlnp | grep -q ":3000"; then
-    echo "⚠️ Port 3000 zaten kullanımda"
-    exit 1
 fi
 
 # Uygulama build edilmiş mi kontrol et
@@ -28,9 +23,9 @@ if [ ! -d ".next" ]; then
     npm run build
 fi
 
-# Uygulamayı başlat
-echo "🚀 Uygulama başlatılıyor..."
-nohup npm start > app.log 2>&1 &
+# PM2 ile uygulamayı başlat
+echo "🚀 PM2 ile uygulama başlatılıyor..."
+npx pm2 start ecosystem.config.js
 
 # Başlatma için bekle
 sleep 5
@@ -40,10 +35,12 @@ echo "🏥 Health check yapılıyor..."
 if curl -f http://localhost:3000/ > /dev/null 2>&1; then
     echo "✅ Uygulama başarıyla başlatıldı!"
     echo "🌐 URL: http://localhost:3000"
-    echo "📋 Log dosyası: app.log"
+    echo "📋 PM2 durumu:"
+    npx pm2 status
 else
     echo "❌ Uygulama başlatılamadı!"
-    echo "📋 Log dosyasını kontrol edin: tail -f app.log"
+    echo "📋 PM2 log'ları:"
+    npx pm2 logs revolt-bot --lines 10
     exit 1
 fi
 

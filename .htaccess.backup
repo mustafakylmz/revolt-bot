@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Basit yönlendirme - sadece ana sayfa için
+RewriteRule ^$ http://localhost:3000/ [R=302,L]
+
+# Diğer sayfalar için
+RewriteRule ^(.*)$ http://localhost:3000/$1 [R=302,L]

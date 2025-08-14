@@ -1,10 +1,10 @@
 #!/bin/bash
 
-# Revolt Bot Status Script
-# Bu script uygulama durumunu kontrol eder
+# Revolt Bot Status Script (PM2 ile)
+# Bu script uygulama durumunu PM2 üzerinden detaylı olarak raporlar
 
-echo "📊 Revolt Bot Durum Raporu"
-echo "================================"
+echo "📊 Revolt Bot Durum Raporu (PM2)"
+echo "=================================="
 
 # Dizine geç
 cd "$(dirname "$0")/.."
@@ -23,14 +23,14 @@ fi
 
 echo ""
 
-# Process durumu
-echo "🔄 Process Durumu:"
-if pgrep -f "npm start" > /dev/null; then
-    echo "✅ Uygulama çalışıyor"
-    PIDS=$(pgrep -f "npm start")
-    echo "📋 Process ID'leri: $PIDS"
+# PM2 durumu
+echo "🔄 PM2 Durumu:"
+if npx pm2 list | grep -q "revolt-bot"; then
+    echo "✅ Uygulama PM2'de çalışıyor"
+    echo "📋 PM2 detayları:"
+    npx pm2 show revolt-bot | grep -E "(status|uptime|memory|cpu|restarts)"
 else
-    echo "❌ Uygulama çalışmıyor"
+    echo "❌ Uygulama PM2'de çalışmıyor"
 fi
 
 echo ""
@@ -54,22 +54,18 @@ echo "📁 Proje boyutu: $DISK_USAGE"
 
 echo ""
 
-# Log dosyaları
-echo "📋 Log Dosyaları:"
-if [ -f "app.log" ]; then
-    LOG_SIZE=$(du -h app.log | cut -f1)
-    echo "📄 app.log: $LOG_SIZE"
-    echo "🕐 Son güncelleme: $(stat -c %y app.log)"
+# PM2 log dosyaları
+echo "📋 PM2 Log Dosyaları:"
+if [ -d "logs" ]; then
+    for log_file in logs/*.log; do
+        if [ -f "$log_file" ]; then
+            LOG_SIZE=$(du -h "$log_file" | cut -f1)
+            echo "📄 $(basename "$log_file"): $LOG_SIZE"
+            echo "🕐 Son güncelleme: $(stat -c %y "$log_file")"
+        fi
+    done
 else
-    echo "❌ app.log bulunamadı"
-fi
-
-if [ -f "update.log" ]; then
-    UPDATE_LOG_SIZE=$(du -h update.log | cut -f1)
-    echo "📄 update.log: $UPDATE_LOG_SIZE"
-    echo "🕐 Son güncelleme: $(stat -c %y update.log)"
-else
-    echo "❌ update.log bulunamadı"
+    echo "❌ Logs dizini bulunamadı"
 fi
 
 echo ""
@@ -85,5 +81,5 @@ else
 fi
 
 echo ""
-echo "================================"
+echo "=================================="
 echo "📊 Durum raporu tamamlandı!"

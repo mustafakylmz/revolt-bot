@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Revolt Bot Otomatik Güncelleme Script'i
+# Revolt Bot Otomatik Güncelleme Script'i (PM2 ile)
 # Bu script cron ile çalıştırılarak otomatik güncelleme yapar
 
 set -e
@@ -32,7 +32,7 @@ cleanup() {
 # Exit trap
 trap cleanup EXIT
 
-log "🚀 Otomatik güncelleme başlatılıyor..."
+log "🚀 Otomatik güncelleme başlatılıyor (PM2 ile)..."
 
 # Dizine geç
 cd /home/musteriler/domains/bot.revolt.tr/public_html

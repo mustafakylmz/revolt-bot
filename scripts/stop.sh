@@ -1,42 +1,30 @@
 #!/bin/bash
 
-# Revolt Bot Stop Script
-# Bu script uygulamayı güvenli bir şekilde durdurur
+# Revolt Bot Stop Script (PM2 ile)
+# Bu script uygulamayı PM2 ile güvenli bir şekilde durdurur
 
-echo "⏹️ Revolt Bot durduruluyor..."
+echo "⏹️ Revolt Bot PM2 ile durduruluyor..."
 
 # Dizine geç
 cd "$(dirname "$0")/.."
 
-# Uygulama çalışıyor mu kontrol et
-if ! pgrep -f "npm start" > /dev/null; then
-    echo "⚠️ Uygulama zaten çalışmıyor"
+# PM2'de uygulama çalışıyor mu kontrol et
+if ! npx pm2 list | grep -q "revolt-bot"; then
+    echo "⚠️ Uygulama PM2'de çalışmıyor"
     exit 0
 fi
 
-# Process ID'leri al
-PIDS=$(pgrep -f "npm start")
-echo "📋 Bulunan process ID'leri: $PIDS"
-
-# Process'leri durdur
-for pid in $PIDS; do
-    echo "🛑 Process $pid durduruluyor..."
-    kill $pid
-done
+# PM2'de uygulamayı durdur
+echo "🛑 PM2'de uygulama durduruluyor..."
+npx pm2 stop revolt-bot
 
 # Kısa bir süre bekle
 sleep 2
 
 # Hala çalışan process var mı kontrol et
-if pgrep -f "npm start" > /dev/null; then
-    echo "⚠️ Bazı process'ler hala çalışıyor, force kill yapılıyor..."
-    pkill -9 -f "npm start"
-fi
-
-# Port 3000'de çalışan process var mı kontrol et
-if ss -tlnp | grep -q ":3000"; then
-    echo "⚠️ Port 3000 hala kullanımda, force kill yapılıyor..."
-    pkill -9 -f "next-server"
+if npx pm2 list | grep -q "revolt-bot.*online"; then
+    echo "⚠️ Uygulama hala çalışıyor, force stop yapılıyor..."
+    npx pm2 delete revolt-bot
 fi
 
 echo "✅ Uygulama başarıyla durduruldu!"

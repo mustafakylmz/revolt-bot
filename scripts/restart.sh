@@ -1,22 +1,22 @@
 #!/bin/bash
 
-# Revolt Bot Restart Script
-# Bu script uygulamayı yeniden başlatır
+# Revolt Bot Restart Script (PM2 ile)
+# Bu script uygulamayı PM2 ile yeniden başlatır
 
-echo "🔄 Revolt Bot yeniden başlatılıyor..."
+echo "🔄 Revolt Bot PM2 ile yeniden başlatılıyor..."
 
 # Dizine geç
 cd "$(dirname "$0")/.."
 
-# Stop script'ini çalıştır
-echo "⏹️ Uygulama durduruluyor..."
-./scripts/stop.sh
+# PM2'de uygulamayı yeniden başlat
+echo "🔄 PM2'de uygulama yeniden başlatılıyor..."
+npx pm2 restart revolt-bot
 
 # Kısa bir süre bekle
 sleep 3
 
-# Start script'ini çalıştır
-echo "🚀 Uygulama başlatılıyor..."
-./scripts/startup.sh
+# Durumu kontrol et
+echo "📋 PM2 durumu:"
+npx pm2 status
 
 echo "🎉 Restart tamamlandı!"

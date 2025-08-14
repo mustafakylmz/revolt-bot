@@ -1,0 +1,8 @@
+RewriteEngine On
+
+# WebSocket bağlantılarını Node.js'e yönlendir (Next.js hot reload / SSR için)
+RewriteCond %{HTTP:Upgrade} =websocket [NC]
+RewriteRule /(.*) ws://127.0.0.1:3000/$1 [P,L]
+
+# Tüm normal HTTP isteklerini Node.js'e proxy'le
+RewriteRule ^(.*)$ http://127.0.0.1:3000/$1 [P,L]
