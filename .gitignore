@@ -103,4 +103,10 @@ temp/
 # Bot specific sensitive files
 config.json
 secrets.json
-tokens.json
+tokens.json.env
+app.log
+
+# Environment variables
+.env
+.env.local
+.env.production
