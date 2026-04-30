@@ -228,8 +228,9 @@ export async function handleRoleInteraction(
       }
 
       return NextResponse.json({
-        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
+          content: 'Rolleriniz güncellendi!',
           flags: InteractionResponseFlags.EPHEMERAL
         }
       });
