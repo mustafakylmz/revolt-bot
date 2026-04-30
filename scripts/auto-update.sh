@@ -6,7 +6,7 @@
 set -e
 
 # Proje kökü (cron bu script'i buradan çalıştırmalı)
-APP_ROOT="/home/revoltbot/htdocs/bot.revolt.tr"
+APP_ROOT="/home/revolt-bot/htdocs/bot.revolt.tr"
 LOG_FILE="$APP_ROOT/update.log"
 LOCK_FILE="$APP_ROOT/update.lock"
 

@@ -6,9 +6,9 @@ Requires=docker.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-WorkingDirectory=/home/revoltbot/htdocs/bot.revolt.tr
-ExecStart=/bin/bash /home/revoltbot/htdocs/bot.revolt.tr/scripts/docker-startup.sh
-ExecStop=/usr/bin/docker-compose -f /home/revoltbot/htdocs/bot.revolt.tr/docker-compose.yml down
+WorkingDirectory=/home/revolt-bot/htdocs/bot.revolt.tr
+ExecStart=/bin/bash /home/revolt-bot/htdocs/bot.revolt.tr/scripts/docker-startup.sh
+ExecStop=/usr/bin/docker-compose -f /home/revolt-bot/htdocs/bot.revolt.tr/docker-compose.yml down
 TimeoutStartSec=0
 User=root
 Group=root

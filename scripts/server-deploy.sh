@@ -8,7 +8,7 @@ set -e
 
 echo "🚀 Revolt Bot Server Deploy başlatılıyor..."
 
-APP_ROOT="/home/revoltbot/htdocs/bot.revolt.tr"
+APP_ROOT="/home/revolt-bot/htdocs/bot.revolt.tr"
 LOG_FILE="$APP_ROOT/deploy.log"
 LOCK_FILE="$APP_ROOT/deploy.lock"
 
