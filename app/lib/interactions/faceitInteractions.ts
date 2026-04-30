@@ -147,9 +147,9 @@ export async function handleFaceitInteraction(
         roleIdToAssign = faceitLevelRoles[String(faceitLevel)] ?? null;
 
         // TÜM Faceit seviye rollerini kaldır (eski rolü sil)
-        const allFaceitRoleIds = Object.values(faceitLevelRoles);
+        const allFaceitRoleIds = Object.values(faceitLevelRoles) as string[];
         for (const oldRoleId of allFaceitRoleIds) {
-          if (oldRoleId && oldRoleId !== roleIdToAssign) {
+          if (oldRoleId && typeof oldRoleId === 'string' && oldRoleId !== roleIdToAssign) {
             try {
               await rest.delete(Routes.guildMemberRole(guildId, memberId, oldRoleId));
               console.log(`Faceit: Removed old role ${oldRoleId} from user ${memberId}`);
