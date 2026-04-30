@@ -209,6 +209,7 @@ export async function handleRoleInteraction(
       console.log('multi_role_select: Processing...');
 
       const selectedRoleIds = interaction.data.values || [];
+      const userRoles = interaction.member?.roles || [];
 
       // Sadece configurable olan rolleri al
       const guildConfig = await db.collection('guild_configs').findOne({ guildId });
@@ -222,7 +223,8 @@ export async function handleRoleInteraction(
           if (selectedRoleIds.includes(roleId)) {
             await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
             console.log(`Rol ${roleId} eklendi`);
-          } else {
+          } else if (userRoles.includes(roleId)) {
+            // Sadece kullanıcıda varsa kaldır
             await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
             console.log(`Rol ${roleId} kaldırıldı`);
           }
