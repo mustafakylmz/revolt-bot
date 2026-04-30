@@ -171,7 +171,7 @@ export default function GuildDashboardPage() {
               <button
                 onClick={saveConfig}
                 disabled={saving}
-                className="bg-revolt-green hover:bg-revolt-green/90 text-revolt-dark px-5 py-2.5 rounded-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2"
+                className="bg-revolt-red hover:bg-revolt-red/90 text-white px-5 py-2.5 rounded-lg font-semibold transition-all disabled:opacity-50 flex items-center gap-2 shadow-lg shadow-revolt-red/20"
               >
                 {saving ? (
                   <>

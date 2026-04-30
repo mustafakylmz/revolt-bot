@@ -12,11 +12,12 @@
   --revolt-muted: #3a3a3a;
   --revolt-text: #ffffff;
   --revolt-text-muted: #a0a0a0;
-  --revolt-accent: #5865F2;
-  --revolt-accent-hover: #4752C4;
+  --revolt-accent: #FF4655;
+  --revolt-accent-hover: #FF6B7A;
   --revolt-green: #57F287;
   --revolt-yellow: #FEE75C;
-  --revolt-red: #ED4245;
+  --revolt-red: #FF4655;
+  --revolt-blue: #5865F2;
 }
 
 * {

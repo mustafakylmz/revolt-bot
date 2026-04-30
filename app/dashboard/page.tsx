@@ -73,12 +73,10 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
               <Link href="/" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 bg-revolt-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
+                <div className="w-10 h-10 bg-gradient-to-br from-revolt-red to-revolt-red/80 rounded-xl flex items-center justify-center group-hover:scale-110 transition-all shadow-lg shadow-revolt-red/20">
+                  <span className="text-white font-extrabold text-lg">R</span>
                 </div>
-                <span className="text-xl font-bold text-white">Revolt Bot</span>
+                <span className="text-xl font-bold text-white tracking-tight">Revolt Bot</span>
               </Link>
               <div className="h-6 w-px bg-revolt-border hidden md:block"></div>
               <span className="text-revolt-text-muted hidden md:block">Dashboard</span>
@@ -127,7 +125,7 @@ export default function DashboardPage() {
               <Link
                 key={guild.id}
                 href={`/dashboard/${guild.id}`}
-                className="bg-revolt-card border border-revolt-border rounded-2xl p-6 hover:border-revolt-accent/50 transition-all group"
+                className="bg-revolt-card border border-revolt-border rounded-2xl p-6 hover:border-revolt-red/50 transition-all group"
               >
                 <div className="flex items-center gap-4">
                   {guild.icon ? (
@@ -144,14 +142,14 @@ export default function DashboardPage() {
                     </div>
                   )}
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-white truncate group-hover:text-revolt-accent transition-colors">
+                    <h3 className="text-lg font-semibold text-white truncate group-hover:text-revolt-red transition-colors">
                       {guild.name}
                     </h3>
                     <p className="text-sm text-revolt-text-muted font-mono">
                       {guild.id}
                     </p>
                   </div>
-                  <svg className="w-5 h-5 text-revolt-text-muted group-hover:text-revolt-accent transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-5 h-5 text-revolt-text-muted group-hover:text-revolt-red transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
                 </div>
