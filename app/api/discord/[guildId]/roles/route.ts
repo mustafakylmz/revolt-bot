@@ -15,10 +15,13 @@ export async function GET(request: Request, { params }: { params: { guildId: str
 
     const { guildId } = params;
 
+    // Bot token kullan - daha güvenilir
+    const botToken = process.env.BOT_TOKEN!;
+
     // Discord API'den sunucu rollerini al
     const response = await fetch(`${DISCORD_API_BASE}/guilds/${guildId}/roles`, {
       headers: {
-        Authorization: `Bearer ${session.accessToken}`,
+        Authorization: `Bot ${botToken}`,
       },
     });
 
