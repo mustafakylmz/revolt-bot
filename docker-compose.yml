@@ -12,6 +12,7 @@ services:
       - "3000:3000"
     environment:
       - NODE_ENV=production
+      - NEXT_PUBLIC_DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
     env_file:
       - .env
     networks:

@@ -25,7 +25,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Image
-              src="/revolt-icon.png"
+              src="https://revolt.tr/assets/images/logo.png"
               alt="Revolt Logo"
               width={40}
               height={40}
@@ -216,7 +216,7 @@ export default function HomePage() {
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <Image
-              src="/revolt-icon.png"
+              src="https://revolt.tr/assets/images/logo.png"
               alt="Revolt Logo"
               width={32}
               height={32}
