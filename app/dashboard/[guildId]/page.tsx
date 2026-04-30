@@ -415,7 +415,7 @@ export default function GuildDashboardPage() {
                                   value={roleEmojiMappings[role.id]?.id || ''}
                                   onChange={(e) => {
                                     const emojiId = e.target.value;
-                                    const emoji = emojiId ? emojis.find((em) => em.id === emojiId) : null;
+                                    const emoji = emojiId ? emojis.find((em) => em.id === emojiId) ?? null : null;
                                     handleEmojiSelection(role.id, emoji);
                                   }}
                                   className="flex-1 bg-revolt-darker border border-revolt-border rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-revolt-accent max-w-[180px]"
