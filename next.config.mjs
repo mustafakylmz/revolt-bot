@@ -2,6 +2,7 @@
 const nextConfig = {
   images: {
     domains: ['cdn.discordapp.com', 'revolt.tr'],
+    unoptimized: true,
   },
   output: 'standalone',
 };
