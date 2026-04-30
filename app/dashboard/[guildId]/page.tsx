@@ -250,7 +250,7 @@ export default function GuildDashboardPage() {
           <h1 className="text-2xl font-bold text-white mb-4">Sunucu Bulunamadı</h1>
           <p className="text-revolt-text-muted mb-6">Bu sunucuya erişim izniniz bulunmuyor.</p>
           <Link href="/dashboard" className="inline-block bg-revolt-accent hover:bg-revolt-accent-hover text-white px-6 py-3 rounded-lg font-semibold transition-all hover:scale-105">
-            Dashboard'a Dön
+            Dashboard&apos;a Dön
           </Link>
         </div>
       </div>
