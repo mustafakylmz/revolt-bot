@@ -3,26 +3,23 @@
 # Revolt Bot Docker Startup Script
 # Bu script Docker Compose ile sistemi başlatır ve eski imageları temizler
 
-set -e
-
-echo "🚀 Revolt Bot Docker startup başlatılıyor..."
-
-# Dizine geç
-cd "$(dirname "$0")/.."
-APP_ROOT="$(pwd)"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+APP_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 LOG_FILE="$APP_ROOT/docker-startup.log"
 LOCK_FILE="$APP_ROOT/docker-startup.lock"
 
-# Log fonksiyonu
+# Log fonksiyonu - izin hatası olursa fail etme
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1" | tee -a "$LOG_FILE"
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+    echo "$msg"
+    echo "$msg" >> "$LOG_FILE" 2>/dev/null || true
 }
 
 # Lock file kontrolü
 if [ -f "$LOCK_FILE" ]; then
-    PID=$(cat "$LOCK_FILE")
-    if kill -0 "$PID" 2>/dev/null; then
+    PID=$(cat "$LOCK_FILE" 2>/dev/null)
+    if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
         log "⚠️ Startup zaten çalışıyor (PID: $PID), çıkılıyor..."
         exit 0
     else
@@ -32,11 +29,11 @@ if [ -f "$LOCK_FILE" ]; then
 fi
 
 # Lock file oluştur
-echo "$$" > "$LOCK_FILE"
+echo "$$" > "$LOCK_FILE" 2>/dev/null || true
 
 # Cleanup fonksiyonu
 cleanup() {
-    rm -f "$LOCK_FILE"
+    rm -f "$LOCK_FILE" 2>/dev/null || true
     log "🧹 Cleanup tamamlandı"
 }
 
@@ -48,6 +45,7 @@ log "📋 Docker ve Compose kontrol ediliyor..."
 # Docker'ın çalışıp çalışmadığını kontrol et
 if ! docker info > /dev/null 2>&1; then
     log "❌ Docker çalışmıyor. Lütfen Docker'ı başlatın."
+    log "Docker servisi: sudo systemctl status docker"
     exit 1
 fi
 
