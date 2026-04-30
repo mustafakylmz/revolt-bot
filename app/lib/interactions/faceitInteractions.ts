@@ -146,15 +146,17 @@ export async function handleFaceitInteraction(
         const faceitLevelRoles = guildConfig?.faceitLevelRoles || {};
         roleIdToAssign = faceitLevelRoles[String(faceitLevel)] ?? null;
 
-        // TÜM Faceit seviye rollerini kaldır (eski rolü sil)
+        // Sadece kullanıcıda olan Faceit rollerini kaldır
+        const userRoles = interaction.member?.roles || [];
         const allFaceitRoleIds = Object.values(faceitLevelRoles) as string[];
+
         for (const oldRoleId of allFaceitRoleIds) {
-          if (oldRoleId && typeof oldRoleId === 'string' && oldRoleId !== roleIdToAssign) {
+          if (oldRoleId && typeof oldRoleId === 'string' && oldRoleId !== roleIdToAssign && userRoles.includes(oldRoleId)) {
             try {
               await rest.delete(Routes.guildMemberRole(guildId, memberId, oldRoleId));
               console.log(`Faceit: Removed old role ${oldRoleId} from user ${memberId}`);
             } catch (e) {
-              // Rol silme hatası önemli değil, kullanıcıda o rol yoksa hata vermez
+              // Rol silme hatası önemli değil
             }
           }
         }
