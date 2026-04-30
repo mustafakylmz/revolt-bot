@@ -296,7 +296,7 @@ export async function POST(request: NextRequest) {
 
     // Discord'a detaylı hata mesajı gönder
     const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
-    const errorStack = error instanceof Error ? error.stack : '';
+    const errorStack = error instanceof Error ? (error.stack || 'No stack trace') : 'No stack trace';
 
     return NextResponse.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
