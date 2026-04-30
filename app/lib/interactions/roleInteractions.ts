@@ -121,93 +121,97 @@ export async function handleRoleInteraction(
   fetchRolesInfo: Function,
   memberRoles: string[] = []
 ) {
-  const { custom_id, type } = interaction.data;
-  const guildId = interaction.guild_id;
-  const memberId = interaction.member?.user?.id;
+  try {
+    const { custom_id, type } = interaction.data;
+    const guildId = interaction.guild_id;
+    const memberId = interaction.member?.user?.id;
 
-  if (!memberId) {
-    console.error('handleRoleInteraction: memberId is undefined', { interaction });
-    return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: {
-        content: 'Kullanıcı bilgisi alınamadı.',
-        flags: InteractionResponseFlags.EPHEMERAL
-      }
-    });
-  }
+    console.log('handleRoleInteraction:', { custom_id, type, guildId, memberId, memberRoles });
 
-  if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) {
-    const roles = await fetchRolesInfo(guildId);
-
-    if (!roles || roles.length === 0) {
+    if (!memberId) {
+      console.error('handleRoleInteraction: memberId is undefined');
       return NextResponse.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          content: 'Yapılandırılmış atanabilir roller bulunamadı.',
+          content: 'Kullanıcı bilgisi alınamadı.',
           flags: InteractionResponseFlags.EPHEMERAL
         }
       });
     }
 
-    const guildConfig = await db.collection('guild_configs').findOne({ guildId });
-    const roleCustomEmojis = guildConfig?.roleEmojiMappings || {};
+    if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) {
+      const roles = await fetchRolesInfo(guildId);
 
-    const options = roles.map((role: any) => {
-      const option: any = {
-        label: role.name,
-        value: role.id,
-        default: memberRoles.includes(role.id),
-      };
-      const customEmoji = roleCustomEmojis[role.id];
-      if (customEmoji) {
-        option.emoji = {
-          id: customEmoji.id || null,
-          name: customEmoji.name,
-          animated: customEmoji.animated || false
-        };
-      }
-      return option;
-    });
-
-    const displayOptions = options.length > 0 ? options : [{ 
-      label: "Rol bulunamadı", 
-      value: "no_roles", 
-      default: true, 
-      description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin." 
-    }];
-    
-    const maxValues = Math.max(1, displayOptions.length);
-
-    return NextResponse.json({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: {
-        content: 'Almak istediğiniz rolleri seçin:',
-        components: [
-          {
-            type: ComponentType.ACTION_ROW,
-            components: [
-              {
-                type: ComponentType.STRING_SELECT,
-                custom_id: 'multi_role_select',
-                placeholder: 'Rolleri Seçin',
-                min_values: 0,
-                max_values: maxValues,
-                options: displayOptions
-              }
-            ]
+      if (!roles || roles.length === 0) {
+        return NextResponse.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Yapılandırılmış atanabilir roller bulunamadı.',
+            flags: InteractionResponseFlags.EPHEMERAL
           }
-        ],
-        flags: InteractionResponseFlags.EPHEMERAL
+        });
       }
-    });
-  }
 
-  if (custom_id === 'multi_role_select') {
-    const selectedRoleIds = interaction.data.values || [];
-    const roles = await fetchRolesInfo(guildId);
-    const allConfigurableIds = roles.map((role: any) => role.id);
+      const guildConfig = await db.collection('guild_configs').findOne({ guildId });
+      const roleCustomEmojis = guildConfig?.roleEmojiMappings || {};
 
-    try {
+      const options = roles.map((role: any) => {
+        const option: any = {
+          label: role.name,
+          value: role.id,
+          default: memberRoles.includes(role.id),
+        };
+        const customEmoji = roleCustomEmojis[role.id];
+        if (customEmoji) {
+          option.emoji = {
+            id: customEmoji.id || null,
+            name: customEmoji.name,
+            animated: customEmoji.animated || false
+          };
+        }
+        return option;
+      });
+
+      const displayOptions = options.length > 0 ? options : [{
+        label: "Rol bulunamadı",
+        value: "no_roles",
+        default: true,
+        description: "Lütfen bot yöneticisinin rolleri yapılandırmasını bekleyin."
+      }];
+
+      const maxValues = Math.max(1, displayOptions.length);
+
+      return NextResponse.json({
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          content: 'Almak istediğiniz rolleri seçin:',
+          components: [
+            {
+              type: ComponentType.ACTION_ROW,
+              components: [
+                {
+                  type: ComponentType.STRING_SELECT,
+                  custom_id: 'multi_role_select',
+                  placeholder: 'Rolleri Seçin',
+                  min_values: 0,
+                  max_values: maxValues,
+                  options: displayOptions
+                }
+              ]
+            }
+          ],
+          flags: InteractionResponseFlags.EPHEMERAL
+        }
+      });
+    }
+
+    if (custom_id === 'multi_role_select') {
+      const selectedRoleIds = interaction.data.values || [];
+      const roles = await fetchRolesInfo(guildId);
+      const allConfigurableIds = roles.map((role: any) => role.id);
+
+      console.log('multi_role_select:', { selectedRoleIds, allConfigurableIds });
+
       for (const roleId of allConfigurableIds) {
         try {
           if (selectedRoleIds.includes(roleId)) {
@@ -226,22 +230,23 @@ export async function handleRoleInteraction(
           flags: InteractionResponseFlags.EPHEMERAL
         }
       });
-    } catch (error) {
-      console.error('Rol güncelleme sırasında hata:', error);
-      return NextResponse.json({
-        type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
-        data: {
-          flags: InteractionResponseFlags.EPHEMERAL
-        }
-      });
     }
-  }
 
-  return NextResponse.json({
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: {
-      content: 'Bilinmeyen bir rol etkileşimi.',
-      flags: InteractionResponseFlags.EPHEMERAL
-    }
-  });
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: 'Bilinmeyen bir rol etkileşimi.',
+        flags: InteractionResponseFlags.EPHEMERAL
+      }
+    });
+  } catch (error) {
+    console.error('handleRoleInteraction ERROR:', error);
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: `Rol işlemi sırasında hata: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}`,
+        flags: InteractionResponseFlags.EPHEMERAL
+      }
+    }, { status: 200 });
+  }
 }

@@ -289,14 +289,21 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Etkileşim işleme hatası:', error);
-    // Discord'a hata döndür - etkileşim başarısız oldu mesajı yerine daha açıklayıcı birşey
+    console.error('=== ETKİLEŞİM HATASI ===');
+    console.error('Error:', error);
+    console.error('Stack:', error instanceof Error ? error.stack : 'No stack');
+    console.error('=========================');
+
+    // Discord'a detaylı hata mesajı gönder
+    const errorMessage = error instanceof Error ? error.message : 'Bilinmeyen hata';
+    const errorStack = error instanceof Error ? error.stack : '';
+
     return NextResponse.json({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: `Bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}. Lütfen bot sahibiyle iletişime geçin.`,
+        content: `Hata: ${errorMessage}\n\`\`\`${errorStack.slice(0, 500)}\`\`\``,
         flags: InteractionResponseFlags.EPHEMERAL
       }
-    }, { status: 200 }); // 200 döndür ki Discord hata olarak algılamasın
+    }, { status: 200 });
   }
 }
