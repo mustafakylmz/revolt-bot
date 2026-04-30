@@ -91,24 +91,35 @@ jobs:
     environment: production
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: revoltbot
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script_stop: true
+          debug: true
+          command: |
+            cd /home/revolt-bot/htdocs/bot.revolt.tr
 
-    - name: Deploy to server
-      env:
-        SERVER_HOST: ${{ secrets.SERVER_HOST }}
-      run: |
-        export HOME=/home/runner
-        mkdir -p $HOME/.ssh
-        chmod 700 $HOME/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > $HOME/.ssh/id_rsa
-        chmod 600 $HOME/.ssh/id_rsa
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revolt-bot/htdocs/bot.revolt.tr && docker compose down || true"
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revolt-bot/htdocs/bot.revolt.tr && git remote set-url origin git@github.com-revolt:mustafakylmz/revolt-bot.git && git pull origin main"
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revolt-bot/htdocs/bot.revolt.tr && docker compose up -d --build"
-        echo "✅ Deployment completed successfully!"
+            git fetch --all --prune
+            git reset --hard origin/main
 
-    - name: Health check after deployment
-      run: |
-        sleep 10
-        curl -f http://${{ secrets.SERVER_HOST }}:3000/api/health || exit 1
+            echo "=== docker ps (before) ==="
+            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
+
+            echo "=== docker compose down ==="
+            docker compose down --remove-orphans 2>/dev/null || true
+
+            echo "=== docker compose up -d --build ==="
+            docker compose up -d --build
+
+            echo "=== docker compose ps ==="
+            docker compose ps
+
+            echo "=== docker compose logs (bot) ==="
+            docker compose logs --tail=50 revolt-bot
+
+            echo "=== Health check ==="
+            sleep 10
+            curl -f http://localhost:3000/api/health || echo "Health check failed"
