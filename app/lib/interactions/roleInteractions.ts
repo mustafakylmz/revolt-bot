@@ -207,12 +207,15 @@ export async function handleRoleInteraction(
 
     if (custom_id === 'multi_role_select') {
       const selectedRoleIds = interaction.data.values || [];
-      const roles = await fetchRolesInfo(guildId);
-      const allConfigurableIds = roles.map((role: any) => role.id);
 
-      console.log('multi_role_select:', { selectedRoleIds, allConfigurableIds });
+      // Sadece configurable olan rolleri al
+      const guildConfig = await db.collection('guild_configs').findOne({ guildId });
+      const configurableRoleIds = guildConfig?.configurableRoleIds || [];
 
-      for (const roleId of allConfigurableIds) {
+      console.log('multi_role_select:', { selectedRoleIds, configurableRoleIds });
+
+      // Sadece yapılandırılabilir rolleri yönet
+      for (const roleId of configurableRoleIds) {
         try {
           if (selectedRoleIds.includes(roleId)) {
             await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
