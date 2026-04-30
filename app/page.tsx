@@ -24,9 +24,13 @@ export default function HomePage() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-revolt-darker/80 backdrop-blur-xl border-b border-revolt-border">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-revolt-red to-revolt-red/80 rounded-xl flex items-center justify-center shadow-lg shadow-revolt-red/20">
-              <span className="text-white font-extrabold text-lg">R</span>
-            </div>
+            <Image
+              src="/revolt-icon.png"
+              alt="Revolt Logo"
+              width={40}
+              height={40}
+              className="rounded-xl"
+            />
             <span className="text-xl font-bold text-white tracking-tight">Revolt Bot</span>
           </div>
           <div className="flex items-center gap-4">
@@ -211,9 +215,13 @@ export default function HomePage() {
       <footer className="py-8 px-6 border-t border-revolt-border">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-revolt-red to-revolt-red/80 rounded-lg flex items-center justify-center">
-              <span className="text-white font-extrabold text-sm">R</span>
-            </div>
+            <Image
+              src="/revolt-icon.png"
+              alt="Revolt Logo"
+              width={32}
+              height={32}
+              className="rounded-lg"
+            />
             <span className="text-revolt-text-muted text-sm">© 2024 Revolt Bot. Tüm hakları saklıdır.</span>
           </div>
           <div className="flex items-center gap-6">

@@ -82,6 +82,8 @@ jobs:
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+        build-args: |
+          NEXT_PUBLIC_DISCORD_CLIENT_ID=${{ secrets.DISCORD_CLIENT_ID }}
 
   deploy:
     name: Deploy to Production
@@ -99,27 +101,11 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           debug: true
-          command: |
+          script: |
             cd /home/revolt-bot/htdocs/bot.revolt.tr
-
             git fetch --all --prune
             git reset --hard origin/main
-
-            echo "=== docker ps (before) ==="
-            docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" || true
-
-            echo "=== docker compose down ==="
             docker compose down --remove-orphans 2>/dev/null || true
-
-            echo "=== docker compose up -d --build ==="
             docker compose up -d --build
-
-            echo "=== docker compose ps ==="
-            docker compose ps
-
-            echo "=== docker compose logs (bot) ==="
-            docker compose logs --tail=50 revolt-bot
-
-            echo "=== Health check ==="
             sleep 10
             curl -f http://localhost:3000/api/health || echo "Health check failed"
