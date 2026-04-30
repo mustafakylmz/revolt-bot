@@ -114,16 +114,27 @@ export async function updateRoleSelectionMessage(
 }
 
 export async function handleRoleInteraction(
-  interaction: any, 
-  db: any, 
-  rest: any, 
-  applicationId: string, 
-  fetchRolesInfo: Function, 
+  interaction: any,
+  db: any,
+  rest: any,
+  applicationId: string,
+  fetchRolesInfo: Function,
   memberRoles: string[] = []
 ) {
   const { custom_id, type } = interaction.data;
   const guildId = interaction.guild_id;
-  const memberId = interaction.member.user.id;
+  const memberId = interaction.member?.user?.id;
+
+  if (!memberId) {
+    console.error('handleRoleInteraction: memberId is undefined', { interaction });
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: 'Kullanıcı bilgisi alınamadı.',
+        flags: InteractionResponseFlags.EPHEMERAL
+      }
+    });
+  }
 
   if (custom_id === 'select_roles_button' && type === MessageComponentTypes.BUTTON) {
     const roles = await fetchRolesInfo(guildId);

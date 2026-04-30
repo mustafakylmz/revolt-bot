@@ -4,16 +4,27 @@ import { InteractionResponseType, InteractionResponseFlags, MessageComponentType
 import { Routes } from 'discord-api-types/v10';
 
 export async function handleFaceitInteraction(
-  interaction: any, 
-  db: any, 
-  rest: any, 
-  applicationId: string, 
-  env: any, 
+  interaction: any,
+  db: any,
+  rest: any,
+  applicationId: string,
+  env: any,
   member: any
 ) {
   const { custom_id } = interaction.data;
-  const memberId = member.user.id;
+  const memberId = member?.user?.id;
   const guildId = interaction.guild_id;
+
+  if (!memberId) {
+    console.error('handleFaceitInteraction: memberId is undefined', { interaction });
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: 'Kullanıcı bilgisi alınamadı. Lütfen tekrar giriş yapmayı deneyin.',
+        flags: InteractionResponseFlags.EPHEMERAL
+      }
+    });
+  }
 
   // Handle the initial button click to request Faceit nickname
   if (interaction.type === InteractionType.MESSAGE_COMPONENT && custom_id === 'faceit_role_request_button') {

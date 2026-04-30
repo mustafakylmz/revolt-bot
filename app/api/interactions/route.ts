@@ -199,10 +199,15 @@ export async function POST(request: NextRequest) {
       const custom_id = data?.custom_id;
 
       if (custom_id === 'select_roles_for_panel') {
+        if (!member?.user?.id) {
+          console.error('select_roles_for_panel: member or member.user.id is undefined', { interaction });
+          return NextResponse.json({ error: 'Kullanıcı bilgisi alınamadı.' }, { status: 400 });
+        }
+
         const selectedRoleIds = data.values || [];
-        const tempInteractionData = await db.collection('temp_interaction_data').findOne({ 
-          userId: member.user.id, 
-          guildId: guild_id 
+        const tempInteractionData = await db.collection('temp_interaction_data').findOne({
+          userId: member.user.id,
+          guildId: guild_id
         });
         const targetChannelId = tempInteractionData?.targetChannelId || channel_id;
 
@@ -212,10 +217,10 @@ export async function POST(request: NextRequest) {
           { upsert: true }
         );
 
-        await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds, member.roles);
+        await updateRoleSelectionMessage(guild_id, targetChannelId, db, rest, applicationId, fetchRolesInfo, true, selectedRoleIds, member.roles || []);
 
         await db.collection('temp_interaction_data').deleteOne({ userId: member.user.id, guildId: guild_id });
-        
+
         return NextResponse.json({
           type: InteractionResponseType.DEFERRED_UPDATE_MESSAGE,
           data: {
@@ -225,10 +230,24 @@ export async function POST(request: NextRequest) {
       }
 
       if (['select_roles_button', 'multi_role_select'].includes(custom_id)) {
-        return await handleRoleInteraction(interaction, db, rest, applicationId, fetchRolesInfo, member.roles);
+        if (!member?.user?.id) {
+          console.error('multi_role_select: member or member.user.id is undefined', { interaction });
+          return NextResponse.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: 'Kullanıcı bilgisi alınamadı.', flags: InteractionResponseFlags.EPHEMERAL }
+          });
+        }
+        return await handleRoleInteraction(interaction, db, rest, applicationId, fetchRolesInfo, member.roles || []);
       }
 
       if (custom_id === 'faceit_role_request_button' || custom_id === 'modal_faceit_nickname_submit') {
+        if (!member?.user?.id) {
+          console.error('faceit_role_request_button: member or member.user.id is undefined', { interaction });
+          return NextResponse.json({
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: 'Kullanıcı bilgisi alınamadı.', flags: InteractionResponseFlags.EPHEMERAL }
+          });
+        }
         return await handleFaceitInteraction(interaction, db, rest, applicationId, process.env, member);
       }
     }
