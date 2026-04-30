@@ -101,20 +101,15 @@ jobs:
         known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
 
     - name: Deploy to server
-      env:
-        SERVER_HOST: ${{ secrets.SERVER_HOST }}
-        SSH_USER: ${{ secrets.SSH_USER }}
       run: |
-        echo "Deploying to ${SSH_USER}@${SERVER_HOST}"
-
         # Stop existing containers
-        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker-compose down || true"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose down || true"
 
         # Update code
-        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
 
         # Build and start services
-        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker-compose up -d --build"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose up -d --build"
 
         echo "✅ Deployment completed successfully!"
 
