@@ -73,9 +73,13 @@ export default function DashboardPage() {
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-4">
               <Link href="/" className="flex items-center gap-3 group">
-                <div className="w-10 h-10 bg-gradient-to-br from-revolt-red to-revolt-red/80 rounded-xl flex items-center justify-center group-hover:scale-110 transition-all shadow-lg shadow-revolt-red/20">
-                  <span className="text-white font-extrabold text-lg">R</span>
-                </div>
+                <Image
+                  src="https://revolt.tr/assets/images/logo.png"
+                  alt="Revolt Logo"
+                  width={40}
+                  height={40}
+                  className="rounded-xl"
+                />
                 <span className="text-xl font-bold text-white tracking-tight">Revolt Bot</span>
               </Link>
               <div className="h-6 w-px bg-revolt-border hidden md:block"></div>
