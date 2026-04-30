@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: { params: { guildId: st
 
     const { guildId } = params;
     const body = await request.json();
-    const { channelId, roleIds } = body;
+    const { channelId, roleIds, emojiMappings } = body;
 
     if (!channelId) {
       return new Response(JSON.stringify({ message: "Kanal ID'si gerekli." }), { status: 400 });
@@ -53,11 +53,25 @@ export async function POST(request: Request, { params }: { params: { guildId: st
     }
 
     // Rol seçeneklerini oluştur
-    const options = selectedRoles.map((role: any) => ({
-      label: role.name,
-      value: role.id,
-      default: false,
-    }));
+    const options = selectedRoles.map((role: any) => {
+      const option: any = {
+        label: role.name,
+        value: role.id,
+        default: false,
+      };
+
+      // Emoji ekle (varsa)
+      const emojiMapping = emojiMappings?.[role.id];
+      if (emojiMapping) {
+        option.emoji = {
+          id: emojiMapping.id,
+          name: emojiMapping.name,
+          animated: emojiMapping.animated || false,
+        };
+      }
+
+      return option;
+    });
 
     const messagePayload = {
       content: 'Almak istediğiniz rolleri seçin:',
@@ -97,15 +111,20 @@ export async function POST(request: Request, { params }: { params: { guildId: st
 
     // Yapılandırmayı kaydet
     const db = await getDb();
+    const updateData: any = {
+      configurableRoleIds: roleIds,
+      rolePanelChannelId: channelId,
+      rolePanelMessageId: messageData.id,
+    };
+
+    // Emoji mapping varsa ekle
+    if (emojiMappings && Object.keys(emojiMappings).length > 0) {
+      updateData.roleEmojiMappings = emojiMappings;
+    }
+
     await db.collection('guild_configs').updateOne(
       { guildId },
-      {
-        $set: {
-          configurableRoleIds: roleIds,
-          rolePanelChannelId: channelId,
-          rolePanelMessageId: messageData.id,
-        },
-      },
+      { $set: updateData },
       { upsert: true }
     );
 

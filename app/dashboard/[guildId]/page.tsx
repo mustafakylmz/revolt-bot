@@ -21,6 +21,13 @@ interface Channel {
   parentId: string | null;
 }
 
+interface Emoji {
+  id: string;
+  name: string;
+  animated: boolean;
+  imageUrl: string;
+}
+
 interface GuildConfig {
   guildId: string;
   configurableRoleIds?: string[];
@@ -47,6 +54,7 @@ export default function GuildDashboardPage() {
   const [guild, setGuild] = useState<Guild | null>(null);
   const [roles, setRoles] = useState<Role[]>([]);
   const [channels, setChannels] = useState<Channel[]>([]);
+  const [emojis, setEmojis] = useState<Emoji[]>([]);
   const [config, setConfig] = useState<GuildConfig | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -57,6 +65,7 @@ export default function GuildDashboardPage() {
   const [selectedChannel, setSelectedChannel] = useState<string>('');
   const [selectedFaceitRoles, setSelectedFaceitRoles] = useState<{ [level: string]: string }>({});
   const [selectedFaceitChannel, setSelectedFaceitChannel] = useState<string>('');
+  const [roleEmojiMappings, setRoleEmojiMappings] = useState<{ [roleId: string]: { id: string; name: string; animated: boolean } }>({});
 
   const showNotification = (type: 'success' | 'error', message: string) => {
     setNotification({ type, message });
@@ -92,6 +101,13 @@ export default function GuildDashboardPage() {
         setChannels(channelsData.channels || []);
       }
 
+      // Fetch emojis
+      const emojisResponse = await fetch(`/api/discord/${guildId}/emojis`);
+      if (emojisResponse.ok) {
+        const emojisData = await emojisResponse.json();
+        setEmojis(emojisData.emojis || []);
+      }
+
       // Fetch config
       const configResponse = await fetch(`/api/guilds/${guildId}/config`);
       if (configResponse.ok) {
@@ -108,6 +124,9 @@ export default function GuildDashboardPage() {
         }
         if (configData.faceitPanelChannelId) {
           setSelectedFaceitChannel(configData.faceitPanelChannelId);
+        }
+        if (configData.roleEmojiMappings) {
+          setRoleEmojiMappings(configData.roleEmojiMappings);
         }
       }
 
@@ -132,6 +151,18 @@ export default function GuildDashboardPage() {
     );
   };
 
+  const handleEmojiSelection = (roleId: string, emoji: Emoji | null) => {
+    setRoleEmojiMappings(prev => {
+      const updated = { ...prev };
+      if (emoji) {
+        updated[roleId] = { id: emoji.id, name: emoji.name, animated: emoji.animated };
+      } else {
+        delete updated[roleId];
+      }
+      return updated;
+    });
+  };
+
   const sendRolePanel = async () => {
     if (!selectedChannel) {
       showNotification('error', 'Lütfen bir kanal seçin.');
@@ -150,6 +181,7 @@ export default function GuildDashboardPage() {
         body: JSON.stringify({
           channelId: selectedChannel,
           roleIds: selectedRoles,
+          emojiMappings: roleEmojiMappings,
         }),
       });
 
@@ -368,27 +400,58 @@ export default function GuildDashboardPage() {
                     <p className="text-sm text-revolt-text-muted text-center py-4">Roller yükleniyor...</p>
                   ) : (
                     roles.map((role) => (
-                      <label
+                      <div
                         key={role.id}
-                        className={`flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-colors ${
+                        className={`px-3 py-2 rounded-lg transition-colors ${
                           selectedRoles.includes(role.id)
                             ? 'bg-revolt-accent/20 border border-revolt-accent/50'
                             : 'hover:bg-revolt-darker'
                         }`}
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedRoles.includes(role.id)}
-                          onChange={() => handleRoleSelection(role.id)}
-                          className="w-4 h-4 rounded border-revolt-border bg-revolt-dark text-revolt-accent focus:ring-revolt-accent focus:ring-offset-0"
-                        />
-                        <span
-                          className="w-3 h-3 rounded-full flex-shrink-0"
-                          style={{ backgroundColor: role.color }}
-                        ></span>
-                        <span className="text-sm text-white">{role.name}</span>
-                        <span className="text-xs text-revolt-text-muted ml-auto font-mono">{role.id}</span>
-                      </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedRoles.includes(role.id)}
+                            onChange={() => handleRoleSelection(role.id)}
+                            className="w-4 h-4 rounded border-revolt-border bg-revolt-dark text-revolt-accent focus:ring-revolt-accent focus:ring-offset-0"
+                          />
+                          <span
+                            className="w-3 h-3 rounded-full flex-shrink-0"
+                            style={{ backgroundColor: role.color }}
+                          ></span>
+                          <span className="text-sm text-white">{role.name}</span>
+                        </label>
+                        {selectedRoles.includes(role.id) && (
+                          <div className="mt-2 ml-7 flex items-center gap-2">
+                            <span className="text-xs text-revolt-text-muted">Emoji:</span>
+                            <select
+                              value={roleEmojiMappings[role.id]?.id || ''}
+                              onChange={(e) => {
+                                const emojiId = e.target.value;
+                                const emoji = emojiId ? emojis.find((em) => em.id === emojiId) : null;
+                                handleEmojiSelection(role.id, emoji);
+                              }}
+                              className="flex-1 bg-revolt-darker border border-revolt-border rounded-lg px-2 py-1 text-sm text-white focus:outline-none focus:border-revolt-accent max-w-[180px]"
+                            >
+                              <option value="">Emoji seç...</option>
+                              {emojis.map((emoji) => (
+                                <option key={emoji.id} value={emoji.id}>
+                                  {emoji.name}
+                                </option>
+                              ))}
+                            </select>
+                            {roleEmojiMappings[role.id] && (
+                              <Image
+                                src={emojis.find((em) => em.id === roleEmojiMappings[role.id]?.id)?.imageUrl || ''}
+                                alt=""
+                                width={20}
+                                height={20}
+                                className="w-5 h-5"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
                     ))
                   )}
                 </div>
