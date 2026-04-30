@@ -102,11 +102,16 @@ jobs:
 
     - name: Deploy to server
       run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "echo 'SSH connection OK'"
+        # Stop existing containers
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose down || true"
+
+        # Update code
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
+
+        # Build and start services
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose up -d --build"
+
+        echo "✅ Deployment completed successfully!"
 
     - name: Health check after deployment
       run: |

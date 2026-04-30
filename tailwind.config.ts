@@ -9,15 +9,23 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        discord: {
-          blurple: '#5865F2',
+        revolt: {
+          dark: '#0f0f0f',
+          darker: '#0a0a0a',
+          card: '#141414',
+          border: '#2a2a2a',
+          muted: '#3a3a3a',
+          text: '#ffffff',
+          textMuted: '#a0a0a0',
+          accent: '#5865F2',
+          accentHover: '#4752C4',
           green: '#57F287',
           yellow: '#FEE75C',
-          fuchsia: '#EB459E',
           red: '#ED4245',
-          white: '#FFFFFF',
-          black: '#000000',
         },
+      },
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       },
     },
   },

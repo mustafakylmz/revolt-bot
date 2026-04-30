@@ -2,26 +2,81 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --revolt-dark: #0f0f0f;
+  --revolt-darker: #0a0a0a;
+  --revolt-card: #141414;
+  --revolt-border: #2a2a2a;
+  --revolt-muted: #3a3a3a;
+  --revolt-text: #ffffff;
+  --revolt-text-muted: #a0a0a0;
+  --revolt-accent: #5865F2;
+  --revolt-accent-hover: #4752C4;
+  --revolt-green: #57F287;
+  --revolt-yellow: #FEE75C;
+  --revolt-red: #ED4245;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--revolt-dark);
+  color: var(--revolt-text);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+  background: var(--revolt-accent);
+  color: white;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--revolt-darker);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--revolt-muted);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--revolt-accent);
+}
+
+@layer utilities {
+  .bg-revolt-dark {
+    background-color: var(--revolt-dark);
+  }
+  .bg-revolt-darker {
+    background-color: var(--revolt-darker);
+  }
+  .bg-revolt-card {
+    background-color: var(--revolt-card);
+  }
+  .text-revolt-text {
+    color: var(--revolt-text);
+  }
+  .text-revolt-muted {
+    color: var(--revolt-text-muted);
+  }
+  .border-revolt-border {
+    border-color: var(--revolt-border);
+  }
 }
