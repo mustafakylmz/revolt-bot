@@ -45,7 +45,7 @@ export async function GET() {
     });
 
     // Filtrelenmiş sunucuları döndür
-    return new Response(JSON.stringify(manageableGuilds), {
+    return new Response(JSON.stringify({ guilds: manageableGuilds }), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',

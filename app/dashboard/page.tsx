@@ -29,7 +29,7 @@ export default function DashboardPage() {
       const response = await fetch('/api/discord/guilds');
       if (response.ok) {
       const data = await response.json();
-      setGuilds(Array.isArray(data) ? data : (data.guilds || []));
+      setGuilds(data.guilds || []);
       }
     } catch (error) {
       console.error('Sunucular alınırken hata:', error);

@@ -44,7 +44,8 @@ export default function GuildDashboardPage() {
       const guildResponse = await fetch(`/api/discord/guilds`);
       if (guildResponse.ok) {
         const guildData = await guildResponse.json();
-        const currentGuild = guildData.guilds.find((g: Guild) => g.id === guildId);
+        const guildsArray = Array.isArray(guildData) ? guildData : (guildData.guilds || []);
+        const currentGuild = guildsArray.find((g: Guild) => g.id === guildId);
         if (!currentGuild) {
           router.push('/dashboard');
           return;
