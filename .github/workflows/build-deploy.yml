@@ -101,24 +101,20 @@ jobs:
         known_hosts: ${{ secrets.SERVER_KNOWN_HOSTS }}
 
     - name: Deploy to server
+      env:
+        SERVER_HOST: ${{ secrets.SERVER_HOST }}
+        SSH_USER: ${{ secrets.SSH_USER }}
       run: |
-        echo "${{ secrets.SERVER_HOST }}" > server_host.txt
-        echo "${{ secrets.SSH_USER }}" > ssh_user.txt
-
-        SERVER_HOST=$(cat server_host.txt)
-        SSH_USER=$(cat ssh_user.txt)
+        echo "Deploying to ${SSH_USER}@${SERVER_HOST}"
 
         # Stop existing containers
-        ssh ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && sudo docker-compose down || true"
+        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker-compose down || true"
 
-        # Pull new image
-        ssh ${SSH_USER}@${SERVER_HOST} "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+        # Update code
+        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
 
-        # Update .env file if needed
-        ssh ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
-
-        # Start services
-        ssh ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && sudo docker-compose up -d"
+        # Build and start services
+        ssh -o StrictHostKeyChecking=no ${SSH_USER}@${SERVER_HOST} "cd /home/revoltbot/htdocs/bot.revolt.tr && docker-compose up -d --build"
 
         echo "✅ Deployment completed successfully!"
 
