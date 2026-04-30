@@ -206,37 +206,37 @@ export async function handleRoleInteraction(
     }
 
     if (custom_id === 'multi_role_select') {
+      console.log('multi_role_select: Processing...');
+
       const selectedRoleIds = interaction.data.values || [];
 
       // Sadece configurable olan rolleri al
       const guildConfig = await db.collection('guild_configs').findOne({ guildId });
       const configurableRoleIds = guildConfig?.configurableRoleIds || [];
 
-      console.log('multi_role_select:', { selectedRoleIds, configurableRoleIds });
+      console.log('multi_role_select: Selected:', selectedRoleIds, 'Configurable:', configurableRoleIds);
 
       // Sadece yapılandırılabilir rolleri yönet
       for (const roleId of configurableRoleIds) {
         try {
           if (selectedRoleIds.includes(roleId)) {
             await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
+            console.log(`Rol ${roleId} eklendi`);
           } else {
-            // Rolü kaldırmaya çalış - kullanıcıda yoksa hata vermez
             await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
+            console.log(`Rol ${roleId} kaldırıldı`);
           }
         } catch (err: any) {
-          // Discord API 50013 = Missing Permissions (bunu zaten çözdük)
-          // Discord API 40031 = User already has this role (bu normal, yoksay)
-          // Discord API 50001 = Missing Access (bu da yoksay)
           const discordError = err?.rawError;
-          if (discordError?.code === 40031 || discordError?.code === 50001) {
-            // Kullanıcıda zaten rol var veya erişim yok - sorun değil
-            console.log(`Rol ${roleId} zaten kullanıcıda var veya erişim yok, atlanıyor.`);
+          if (discordError?.code === 40031 || discordError?.code === 50001 || discordError?.code === 50013) {
+            console.log(`Rol ${roleId}: ${discordError.code} - atlanıyor`);
           } else {
-            console.warn(`Rol güncelleme hatası (rolId: ${roleId}, kullanıcı: ${memberId}):`, err);
+            console.warn(`Rol güncelleme hatası (rolId: ${roleId}):`, err);
           }
         }
       }
 
+      console.log('multi_role_select: Returning success response');
       return NextResponse.json({
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
