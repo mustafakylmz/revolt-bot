@@ -143,8 +143,23 @@ export async function handleFaceitInteraction(
     if (faceitLevel !== null && faceitLevel !== undefined) {
       try {
         const guildConfig = await db.collection('guild_configs').findOne({ guildId });
-        roleIdToAssign = guildConfig?.faceitLevelRoles?.[String(faceitLevel)] ?? null;
+        const faceitLevelRoles = guildConfig?.faceitLevelRoles || {};
+        roleIdToAssign = faceitLevelRoles[String(faceitLevel)] ?? null;
 
+        // TÜM Faceit seviye rollerini kaldır (eski rolü sil)
+        const allFaceitRoleIds = Object.values(faceitLevelRoles);
+        for (const oldRoleId of allFaceitRoleIds) {
+          if (oldRoleId && oldRoleId !== roleIdToAssign) {
+            try {
+              await rest.delete(Routes.guildMemberRole(guildId, memberId, oldRoleId));
+              console.log(`Faceit: Removed old role ${oldRoleId} from user ${memberId}`);
+            } catch (e) {
+              // Rol silme hatası önemli değil, kullanıcıda o rol yoksa hata vermez
+            }
+          }
+        }
+
+        // Yeni rolü ekle
         if (roleIdToAssign) {
           await rest.put(Routes.guildMemberRole(guildId, memberId, roleIdToAssign));
           responseMessage = responseMessage.includes("seviyeniz") ? responseMessage + " ve rol başarıyla atandı." : `Faceit seviyeniz ${faceitLevel} ve rol başarıyla atandı.`;
