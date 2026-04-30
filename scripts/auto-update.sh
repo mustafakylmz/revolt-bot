@@ -5,9 +5,10 @@
 
 set -e
 
-# Log dosyası
-LOG_FILE="/home/musteriler/domains/bot.revolt.tr/public_html/update.log"
-LOCK_FILE="/home/musteriler/domains/bot.revolt.tr/public_html/update.lock"
+# Proje kökü (cron bu script'i buradan çalıştırmalı)
+APP_ROOT="/home/revoltbot/htdocs/bot.revolt.tr"
+LOG_FILE="$APP_ROOT/update.log"
+LOCK_FILE="$APP_ROOT/update.lock"
 
 # Log fonksiyonu
 log() {
@@ -35,7 +36,7 @@ trap cleanup EXIT
 log "🚀 Otomatik güncelleme başlatılıyor (PM2 ile)..."
 
 # Dizine geç
-cd /home/musteriler/domains/bot.revolt.tr/public_html
+cd "$APP_ROOT"
 
 # Git durumunu kontrol et
 if ! git status > /dev/null 2>&1; then

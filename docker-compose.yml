@@ -3,9 +3,11 @@ version: '3.8'
 
 services:
   revolt-bot:
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: revolt-bot
-    restart: unless-stopped
+    restart: always
     ports:
       - "3000:3000"
     environment:
@@ -23,17 +25,18 @@ services:
     labels:
       - "service=revolt-bot"
       - "traefik.enable=true"
-      - "traefik.http.routers.revolt-bot.rule=Host(`localhost`)"
+      - "traefik.http.routers.revolt-bot.rule=Host(`bot.revolt.tr`)"
       - "traefik.http.services.revolt-bot.loadbalancer.server.port=3000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     volumes:
       - ./logs:/app/logs:rw
 
   mongodb:
     image: mongo:7
     container_name: revolt-bot-mongodb
-    restart: unless-stopped
+    restart: always
     ports:
       - "27017:27017"
     environment:
@@ -50,16 +53,17 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    profiles:
+      - proxy
 
-  # Optional: Reverse proxy
   traefik:
     image: traefik:v3.0
     container_name: revolt-bot-traefik
-    restart: unless-stopped
+    restart: always
     ports:
       - "80:80"
       - "443:443"
-      - "8080:8080"  # Dashboard
+      - "8080:8080"
     command:
       - "--api.dashboard=true"
       - "--api.insecure=true"

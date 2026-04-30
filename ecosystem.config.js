@@ -3,7 +3,7 @@ module.exports = {
     name: 'revolt-bot',
     script: 'npm',
     args: 'start',
-    cwd: '/home/musteriler/domains/bot.revolt.tr/public_html',
+    cwd: __dirname,
     instances: 1,
     autorestart: true,
     watch: false,
