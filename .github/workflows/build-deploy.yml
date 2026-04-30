@@ -98,13 +98,14 @@ jobs:
       env:
         SERVER_HOST: ${{ secrets.SERVER_HOST }}
       run: |
-        mkdir -p ~/.ssh
-        chmod 700 ~/.ssh
-        echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > ~/.ssh/id_rsa
-        chmod 600 ~/.ssh/id_rsa
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose down || true"
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i ~/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose up -d --build"
+        export HOME=/home/runner
+        mkdir -p $HOME/.ssh
+        chmod 700 $HOME/.ssh
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > $HOME/.ssh/id_rsa
+        chmod 600 $HOME/.ssh/id_rsa
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose down || true"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revoltbot/htdocs/bot.revolt.tr && git pull origin main"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revoltbot/htdocs/bot.revolt.tr && docker compose up -d --build"
         echo "✅ Deployment completed successfully!"
 
     - name: Health check after deployment
