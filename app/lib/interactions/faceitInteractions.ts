@@ -108,9 +108,11 @@ export async function handleFaceitInteraction(
       }
 
       if (faceitData) {
+        console.log('Faceit: Processing faceitData:', JSON.stringify(faceitData, null, 2));
         // Prioritize CS2, then fallback to CSGO
         if (faceitData.games && faceitData.games.cs2) {
           faceitLevel = faceitData.games.cs2.skill_level;
+          console.log('Faceit: CS2 level found:', faceitLevel);
           if (faceitLevel === undefined || faceitLevel === null) {
             responseMessage = `Faceit hesabınızda CS2 seviyeniz tespit edilemedi veya eksik.`;
           } else {
@@ -118,14 +120,18 @@ export async function handleFaceitInteraction(
           }
         } else if (faceitData.games && faceitData.games.csgo) {
           faceitLevel = faceitData.games.csgo.skill_level;
+          console.log('Faceit: CSGO level found:', faceitLevel);
           if (faceitLevel === undefined || faceitLevel === null) {
             responseMessage = `Faceit hesabınızda CSGO seviyeniz tespit edilemedi veya eksik.`;
           } else {
             responseMessage = `Faceit CSGO seviyeniz ${faceitLevel}.`;
           }
         } else {
+          console.log('Faceit: No CS2 or CSGO game found');
           responseMessage = `Faceit hesabınızda CS2 veya CSGO oyunu bulunamadı veya verisi eksik.`;
         }
+      } else {
+        console.log('Faceit: No faceitData after API call');
       }
 
     } catch (e) {
@@ -178,8 +184,9 @@ export async function handleFaceitInteraction(
       }
     }
 
+    console.log('Faceit: Returning response:', responseMessage);
     return NextResponse.json({
-      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
         content: responseMessage,
         flags: InteractionResponseFlags.EPHEMERAL
