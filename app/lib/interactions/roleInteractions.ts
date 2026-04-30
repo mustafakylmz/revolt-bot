@@ -220,10 +220,20 @@ export async function handleRoleInteraction(
           if (selectedRoleIds.includes(roleId)) {
             await rest.put(Routes.guildMemberRole(guildId, memberId, roleId));
           } else {
+            // Rolü kaldırmaya çalış - kullanıcıda yoksa hata vermez
             await rest.delete(Routes.guildMemberRole(guildId, memberId, roleId));
           }
-        } catch (err) {
-          console.warn(`Rol güncelleme hatası (rolId: ${roleId}, kullanıcı: ${memberId}):`, err);
+        } catch (err: any) {
+          // Discord API 50013 = Missing Permissions (bunu zaten çözdük)
+          // Discord API 40031 = User already has this role (bu normal, yoksay)
+          // Discord API 50001 = Missing Access (bu da yoksay)
+          const discordError = err?.rawError;
+          if (discordError?.code === 40031 || discordError?.code === 50001) {
+            // Kullanıcıda zaten rol var veya erişim yok - sorun değil
+            console.log(`Rol ${roleId} zaten kullanıcıda var veya erişim yok, atlanıyor.`);
+          } else {
+            console.warn(`Rol güncelleme hatası (rolId: ${roleId}, kullanıcı: ${memberId}):`, err);
+          }
         }
       }
 
