@@ -66,17 +66,28 @@ export async function handleFaceitInteraction(
 
   // Handle the submission of the Faceit nickname modal
   if (interaction.type === InteractionType.MODAL_SUBMIT && custom_id === 'modal_faceit_nickname_submit') {
+    console.log('Faceit: Processing modal submit...');
     const originalNickname = interaction.data.components[0].components[0].value;
+    console.log('Faceit: Nickname input:', originalNickname);
+
     let responseMessage = '';
     let faceitLevel = null;
     let roleIdToAssign = null;
     let faceitData = null;
 
     try {
-      // Try fetching with the original nickname
+      // Try fetching with the original nickname - with timeout
+      console.log('Faceit: Calling Faceit API...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 sn timeout
+
       let faceitRes = await fetch(`https://open.faceit.com/data/v4/players?nickname=${encodeURIComponent(originalNickname)}`, {
-        headers: { Authorization: `Bearer ${env.FACEIT_API_KEY}` }
+        headers: { Authorization: `Bearer ${env.FACEIT_API_KEY}` },
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
+      console.log('Faceit: API response status:', faceitRes.status);
 
       if (faceitRes.ok) {
         faceitData = await faceitRes.json();
