@@ -104,7 +104,7 @@ jobs:
         echo "${{ secrets.SSH_PRIVATE_KEY }}" | base64 -d > $HOME/.ssh/id_rsa
         chmod 600 $HOME/.ssh/id_rsa
         ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revolt-bot/htdocs/bot.revolt.tr && docker compose down || true"
-        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revolt-bot/htdocs/bot.revolt.tr && git pull origin main"
+        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "cd /home/revolt-bot/htdocs/bot.revolt.tr && git remote set-url origin git@github.com-revolt:mustafakylmz/revolt-bot.git && git pull origin main"
         ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 -i $HOME/.ssh/id_rsa revoltbot@${{ secrets.SERVER_HOST }} "sudo chmod 666 /var/run/docker.sock && cd /home/revolt-bot/htdocs/bot.revolt.tr && docker compose up -d --build"
         echo "✅ Deployment completed successfully!"
 
