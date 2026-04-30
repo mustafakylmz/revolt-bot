@@ -1,7 +1,15 @@
 // app/lib/interactions/faceitInteractions.ts
 import { NextResponse } from 'next/server';
-import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes, InteractionType } from 'discord-interactions';
+import { InteractionResponseType, InteractionResponseFlags, MessageComponentTypes } from 'discord-interactions';
 import { Routes } from 'discord-api-types/v10';
+
+// Discord interaction types (numeric)
+// MESSAGE_COMPONENT = 3
+// MODAL_SUBMIT = 5
+const InteractionType = {
+  MESSAGE_COMPONENT: 3,
+  MODAL_SUBMIT: 5,
+};
 
 export async function handleFaceitInteraction(
   interaction: any,
@@ -14,6 +22,8 @@ export async function handleFaceitInteraction(
   const { custom_id } = interaction.data;
   const memberId = member?.user?.id;
   const guildId = interaction.guild_id;
+
+  console.log('Faceit Interaction:', { type: interaction.type, custom_id, memberId });
 
   if (!memberId) {
     console.error('handleFaceitInteraction: memberId is undefined', { interaction });

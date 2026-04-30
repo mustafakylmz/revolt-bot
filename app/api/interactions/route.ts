@@ -25,7 +25,9 @@ async function connectToDatabase() {
       version: ServerApiVersion.v1,
       strict: true,
       deprecationErrors: true,
-    }
+    },
+    socketTimeoutMS: 5000, // 5 saniye timeout
+    connectTimeoutMS: 5000,
   });
 
   await client.connect();
@@ -87,6 +89,13 @@ export async function POST(request: NextRequest) {
     const interaction = JSON.parse(rawBody);
     const { type, data, guild_id, channel_id, member } = interaction;
 
+    console.log('=== DISCORD INTERACTION ===');
+    console.log('Type:', type);
+    console.log('Custom ID:', data?.custom_id);
+    console.log('Guild ID:', guild_id);
+    console.log('Member:', JSON.stringify(member, null, 2));
+    console.log('=========================');
+
     if (type === 1) {
       return NextResponse.json({ type: 1 }); // PONG response
     }
@@ -96,7 +105,18 @@ export async function POST(request: NextRequest) {
     // Handle slash commands
     if (type === 2) { // APPLICATION_COMMAND
       const { name, options } = data;
-      
+
+      if (!member?.user?.id) {
+        console.error('Slash command: member or member.user.id is undefined');
+        return NextResponse.json({
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: {
+            content: 'Kullanıcı bilgisi alınamadı.',
+            flags: InteractionResponseFlags.EPHEMERAL
+          }
+        });
+      }
+
       if (name === 'send-role-panel') {
         const targetChannelId = options?.find((opt: any) => opt.name === 'channel')?.value || channel_id;
         
@@ -270,6 +290,13 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     console.error('Etkileşim işleme hatası:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    // Discord'a hata döndür - etkileşim başarısız oldu mesajı yerine daha açıklayıcı birşey
+    return NextResponse.json({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: `Bir hata oluştu: ${error instanceof Error ? error.message : 'Bilinmeyen hata'}. Lütfen bot sahibiyle iletişime geçin.`,
+        flags: InteractionResponseFlags.EPHEMERAL
+      }
+    }, { status: 200 }); // 200 döndür ki Discord hata olarak algılamasın
   }
 }
